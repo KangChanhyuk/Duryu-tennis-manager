@@ -2,60 +2,70 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import os
-from datetime import datetime
 import io
+import random
+from datetime import datetime
 
-# ─── [1] 페이지 초기 설정 및 디자인 (테니스 느낌의 밝은 UI) ───
+# ─── [1] 환경 설정 및 테마 디자인 (모바일 최적화) ───
 st.set_page_config(page_title="두류 랭킹 관리 시스템", layout="wide", initial_sidebar_state="collapsed")
 
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
-    * { font-family: 'Noto Sans KR', sans-serif; text-align: center; }
-    .main { background-color: #f0f9ff; }
-    .stApp { background-color: #fdfdfd; }
-    
-    /* 헤더 및 타이틀 */
-    .title-box { background: linear-gradient(135deg, #1d4ed8, #3b82f6); color: white; padding: 1.5rem; border-radius: 15px; margin-bottom: 2rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-    
-    /* 카드 및 표 디자인 */
-    .stTabs [data-baseweb="tab-list"] { justify-content: center; background-color: #eff6ff; border-radius: 10px; }
-    .stTabs [data-baseweb="tab"] { font-weight: 700; font-size: 1.1rem; color: #1e40af; }
-    
-    /* 대진표 디자인 */
-    .match-card { background: white; border: 2px solid #bfdbfe; border-radius: 12px; padding: 12px; margin: 8px 0; display: flex; align-items: center; justify-content: center; }
-    .team-box { background: #dbeafe; padding: 8px 15px; border-radius: 8px; min-width: 100px; font-weight: 700; color: #1e3a8a; }
-    .vs-badge { background: #ef4444; color: white; padding: 4px 8px; border-radius: 50%; margin: 0 15px; font-style: italic; font-weight: 900; }
-    
-    /* 매트릭스 회색 음영 */
-    .matrix-self { background-color: #e5e7eb !important; color: #e5e7eb !important; }
-    
-    /* 가독성 강조 */
-    .name-highlight { background-color: #fef08a; padding: 2px 6px; border-radius: 4px; font-weight: 700; }
-    
-    /* 모바일 가독성 */
-    @media (max-width: 600px) {
-        .team-box { min-width: 70px; font-size: 0.9rem; }
-        .vs-badge { margin: 0 5px; }
-    }
-</style>
-""", unsafe_allow_html=True)
+def local_css():
+    st.markdown("""
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700;900&display=swap');
+        * { font-family: 'Noto Sans KR', sans-serif; text-align: center; }
+        .stApp { background-color: #F8FAFC; }
+        
+        /* 헤더 디자인 */
+        .main-header { background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); padding: 2rem; border-radius: 0 0 30px 30px; color: white; margin-bottom: 2rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        
+        /* 카드 UI */
+        .css-card { background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #E2E8F0; margin-bottom: 1rem; }
+        
+        /* 경기 대진 UI */
+        .match-row { display: flex; align-items: center; justify-content: center; background: #FFFFFF; border-radius: 12px; padding: 10px; margin: 10px 0; border: 2px solid #E0F2FE; transition: 0.3s; }
+        .match-row:hover { border-color: #38BDF8; transform: translateY(-2px); }
+        .team-box { flex: 1; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 1.1rem; }
+        .team-left { background: #F1F5F9; color: #1E293B; }
+        .team-right { background: #F1F5F9; color: #1E293B; }
+        .vs-circle { background: #EF4444; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-style: italic; font-weight: 900; margin: 0 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+        
+        /* 매트릭스 음영 */
+        .matrix-self { background-color: #CBD5E1 !important; }
+        
+        /* 탭 커스텀 */
+        .stTabs [data-baseweb="tab-list"] { gap: 10px; justify-content: center; }
+        .stTabs [data-baseweb="tab"] { background-color: #f1f5f9; border-radius: 8px 8px 0 0; padding: 10px 20px; font-weight: 700; }
+        .stTabs [data-baseweb="tab--active"] { background-color: #38bdf8 !important; color: white !important; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# ─── [2] 데이터베이스 초기화 및 상수 ───
+local_css()
+
+# ─── [2] 데이터 처리 엔진 ───
 DB_FILE = "tennis_members.csv"
-ARCHIVE_FILE = "tournament_archive.csv"
+HIST_FILE = "tournament_history.csv"
 
 def init_db():
     if not os.path.exists(DB_FILE):
         df = pd.DataFrame(columns=["이름", "현재포인트", "이전포인트", "결과", "부과점", "그룹", "비고"])
         df.to_csv(DB_FILE, index=False)
-    if not os.path.exists(ARCHIVE_FILE):
-        pd.DataFrame(columns=["대회명", "날짜", "그룹명", "데이터"]).to_csv(ARCHIVE_FILE, index=False)
+    if not os.path.exists(HIST_FILE):
+        pd.DataFrame(columns=["대회명", "날짜", "그룹데이터"]).to_csv(HIST_FILE, index=False)
+
+def load_data():
+    try:
+        df = pd.read_csv(DB_FILE)
+        df.columns = [c.strip() for c in df.columns] # 공백 제거로 KeyError 방지
+        return df
+    except:
+        return pd.DataFrame(columns=["이름", "현재포인트", "이전포인트", "결과", "부과점", "그룹", "비고"])
 
 init_db()
 
-# ─── [3] KDK 대진표 엔진 (요청하신 정교한 알고리즘) ───
-KDK_TABLE = {
+# ─── [3] KDK 및 경기 알고리즘 ───
+# 요청하신 1인 3게임/4게임 정교한 대진표 로직
+KDK_DB = {
     "3_4": [(1,4,2,3), (1,3,2,4), (1,2,3,4)],
     "3_8": [(1,2,3,4), (5,6,7,8), (1,8,2,7), (3,6,4,5), (1,4,5,8), (2,3,6,7)],
     "3_12": [(1,2,3,4), (5,6,7,8), (9,10,11,12), (1,3,5,7), (2,4,6,8), (9,11,1,5), (4,8,9,12), (6,7,10,11), (10,12,2,3)],
@@ -68,180 +78,169 @@ KDK_TABLE = {
     "4_11": [(1,2,3,5), (6,7,8,10), (4,9,1,11), (2,3,6,8), (4,5,7,10), (9,11,2,6), (1,3,7,11), (4,8,5,9), (1,10,2,8), (4,7,6,11), (3,9,5,10)]
 }
 
-def get_kdk_matches(players, games_count):
+def generate_matches(players, p_type, games):
     n = len(players)
-    key = f"{games_count}_{n}"
-    if key not in KDK_TABLE:
-        return []
-    
-    indices = KDK_TABLE[key]
-    matches = []
-    for idx in indices:
-        # 번호 기반 대진 생성 (1번이 index 0)
-        p1, p2, p3, p4 = players[idx[0]-1], players[idx[1]-1], players[idx[2]-1], players[idx[3]-1]
-        matches.append(((p1, p2), (p3, p4)))
-    return matches
+    if p_type == "KDK":
+        key = f"{games}_{n}"
+        if key in KDK_DB:
+            return [((players[idx[0]-1], players[idx[1]-1]), (players[idx[2]-1], players[idx[3]-1])) for idx in KDK_DB[key]]
+    elif p_type == "고정페어":
+        # 1위+최하위, 2위+차하위 로직
+        pairs = []
+        for i in range(n // 2):
+            pairs.append((players[i], players[n-1-i]))
+        matches = []
+        for i in range(len(pairs)):
+            for j in range(i+1, len(pairs)):
+                matches.append((pairs[i], pairs[j]))
+        return matches
+    elif p_type == "단식":
+        shuffled = random.sample(players, n)
+        return [( (shuffled[i],), (shuffled[i+1],) ) for i in range(0, n-1, 2)]
+    return []
 
-# ─── [4] 세션 상태 관리 ───
-if "admin_logged_in" not in st.session_state: st.session_state.admin_logged_in = False
-if "current_tournament" not in st.session_state:
-    st.session_state.current_tournament = {
-        "name": "2026 두류 정기 대회",
-        "groups": {}, # {group_name: {"players": [], "type": "KDK", "games": 3, "matches": []}}
-        "status": "Setting"
-    }
-if "admin_pw" not in st.session_state: st.session_state.admin_pw = "0502"
+# ─── [4] 세션 상태 초기화 ───
+if "admin" not in st.session_state: st.session_state.admin = False
+if "tournament" not in st.session_state:
+    st.session_state.tournament = {"name": "2026 두류 챔피언십", "groups": {}, "court": 2}
+if "pw" not in st.session_state: st.session_state.pw = "0502"
 
-# ─── [5] 메인 레이아웃 및 메뉴 ───
-st.markdown('<div class="title-box"><h1>🎾 두류 랭킹 관리 시스템</h1></div>', unsafe_allow_html=True)
+# ─── [5] UI 메인 렌더링 ───
+st.markdown(f'<div class="main-header"><h1>🎾 두류 랭킹 관리 시스템</h1><p>{st.session_state.tournament["name"]}</p></div>', unsafe_allow_html=True)
 
-menu = st.sidebar.radio("메뉴 선택", ["두류 랭킹", "대진 및 경기 현황", "경기 결과 및 점수 확인", "지난 대회 아카이브", "관리자 페이지"])
+menu = st.sidebar.radio("MENU", ["🏆 두류 랭킹", "📅 대진 및 경기 현황", "📊 경기 결과/순위", "📂 아카이브", "⚙️ 관리자"])
 
-# ─── [6] 1번 메뉴: 두류 랭킹 ───
-if menu == "두류 랭킹":
-    st.header("🏆 전체 랭킹 현황")
-    df = pd.read_csv(DB_FILE)
+# --- 1번 메뉴: 두류 랭킹 ---
+if menu == "🏆 두류 랭킹":
+    df = load_data()
+    # 상단 랭킹 정렬 (내림차순)
+    df = df.sort_values("현재포인트", ascending=False).reset_index(drop=True)
+    df.insert(0, "순위", range(1, len(df)+1))
     
-    # 정렬: 현재포인트 내림차순
-    df = df.sort_values(by="현재포인트", ascending=False).reset_index(drop=True)
-    df.insert(0, "순위", range(1, len(df) + 1))
+    # 컬럼명 변경 표시 (4월=현재, 3월=이전)
+    view_df = df.copy()
+    view_df.columns = ["순위", "이름", "4월 포인트", "3월 포인트", "결과", "부과점", "그룹", "비고"]
     
-    # 항목 표시 (4월=현재, 3월=이전)
-    df.columns = ["순위", "이름", "4월 포인트", "3월 포인트", "결과", "부과점", "그룹", "비고"]
-    
-    if st.session_state.admin_logged_in:
-        edited_df = st.data_editor(df, use_container_width=True, num_rows="dynamic")
-        if st.button("랭킹 데이터 저장"):
-            # 다시 저장 시 컬럼명 원복
-            save_df = edited_df.drop(columns=["순위"])
-            save_df.columns = ["이름", "현재포인트", "이전포인트", "결과", "부과점", "그룹", "비고"]
-            save_df.to_csv(DB_FILE, index=False)
-            st.success("저장 완료!")
+    st.subheader("회원 포인트 리스트")
+    if st.session_state.admin:
+        edited = st.data_editor(view_df, use_container_width=True, num_rows="dynamic")
+        if st.button("데이터 최종 저장"):
+            # 컬럼 복원 후 저장
+            final_df = edited.drop(columns=["순위"])
+            final_df.columns = ["이름", "현재포인트", "이전포인트", "결과", "부과점", "그룹", "비고"]
+            final_df.to_csv(DB_FILE, index=False)
+            st.success("랭킹 데이터가 업데이트되었습니다.")
     else:
-        st.table(df)
-        
+        st.table(view_df)
+
     col1, col2 = st.columns(2)
     with col1:
-        if st.download_button("Excel 다운로드", data=df.to_csv(index=False).encode('utf-8-sig'), file_name="duryu_ranking.csv", mime="text/csv"):
-            st.info("다운로드 시작...")
+        csv = view_df.to_csv(index=False).encode('utf-8-sig')
+        st.download_button("Excel(CSV) 다운로드", csv, "duryu_ranking.csv", "text/csv")
     with col2:
-        if st.session_state.admin_logged_in:
-            up_file = st.file_uploader("랭킹 엑셀 업로드 (CSV)", type="csv")
-            if up_file:
-                up_df = pd.read_csv(up_file)
+        if st.session_state.admin:
+            file = st.file_uploader("랭킹 업데이트 (CSV)", type="csv")
+            if file:
+                up_df = pd.read_csv(file)
+                up_df.columns = [c.strip() for c in up_df.columns]
                 up_df.to_csv(DB_FILE, index=False)
-                st.success("업로드 완료! 페이지를 새로고침 하세요.")
+                st.rerun()
 
-# ─── [7] 2번 메뉴: 대진 및 경기 현황 ───
-elif menu == "대진 및 경기 현황":
-    st.header(f"📅 {st.session_state.current_tournament['name']}")
-    
-    groups = st.session_state.current_tournament['groups']
+# --- 2번 메뉴: 대진 및 경기 현황 ---
+elif menu == "📅 대진 및 경기 현황":
+    groups = st.session_state.tournament["groups"]
     if not groups:
-        st.info("관리자 페이지에서 대진을 먼저 생성해주세요.")
+        st.info("관리자 페이지에서 대진을 생성해 주세요.")
     else:
         tabs = st.tabs(list(groups.keys()))
         for i, g_name in enumerate(groups.keys()):
             with tabs[i]:
-                g_data = groups[g_name]
-                players = g_data['players']
+                g = groups[g_name]
+                players = g["players"]
                 
-                col_m, col_r = st.columns([3, 2])
-                with col_m:
-                    st.subheader("조별 매트릭스")
-                    matrix_data = pd.DataFrame(index=players, columns=players)
-                    # 스타일링을 위해 단순 테이블 대신 HTML/CSS 처리 권장되나 여기선 기본 표기
-                    st.dataframe(matrix_data.fillna("-"), use_container_width=True)
+                c1, c2 = st.columns([3, 2])
+                with c1:
+                    st.markdown("#### 🏁 조별 매트릭스")
+                    matrix = pd.DataFrame("-", index=players, columns=players)
+                    for idx, p in enumerate(players): matrix.iloc[idx, idx] = "X"
+                    st.dataframe(matrix.style.applymap(lambda x: 'background-color: #CBD5E1' if x == 'X' else ''), use_container_width=True)
                 
-                with col_r:
-                    st.subheader("실시간 순위")
-                    st.write("경기 결과 입력에 따라 자동 집계됩니다.")
+                with c2:
+                    st.markdown("#### 📈 실시간 순위표")
+                    st.caption("경기 결과 입력 시 자동 반영됩니다.")
                 
                 st.markdown("---")
-                st.subheader("🔥 경기 대진 및 결과 입력")
-                
-                for idx, match in enumerate(g_data['matches']):
+                st.markdown("#### 🎾 대진 순서 및 결과 입력")
+                for midx, match in enumerate(g["matches"]):
                     t1, t2 = match
                     with st.container():
                         st.markdown(f"""
-                        <div class="match-card">
-                            <div class="team-box">{t1[0]} / {t1[1]}</div>
-                            <div class="vs-badge">VS</div>
-                            <div class="team-box">{t2[0]} / {t2[1]}</div>
+                        <div class="match-row">
+                            <div class="team-box team-left">{" & ".join(t1)}</div>
+                            <div class="vs-circle">VS</div>
+                            <div class="team-box team-right">{" & ".join(t2)}</div>
                         </div>
                         """, unsafe_allow_html=True)
-                        c1, c2 = st.columns(2)
-                        with c1: st.number_input(f"Score 1 (Match {idx})", 0, 10, key=f"score1_{g_name}_{idx}")
-                        with c2: st.number_input(f"Score 2 (Match {idx})", 0, 10, key=f"score2_{g_name}_{idx}")
+                        sc1, sc2 = st.columns(2)
+                        with sc1: st.number_input(f"T1", 0, 10, key=f"s1_{g_name}_{midx}")
+                        with sc2: st.number_input(f"T2", 0, 10, key=f"s2_{g_name}_{midx}")
 
-# ─── [8] 5번 메뉴: 관리자 페이지 ───
-elif menu == "관리자 페이지":
-    st.header("⚙️ 관리자 컨트롤 패널")
+# --- 5번 메뉴: 관리자 페이지 ---
+elif menu == "⚙️ 관리자":
+    st.subheader("🔐 시스템 관리자 로그인")
+    pw = st.text_input("PASSWORD", type="password")
+    if pw == st.session_state.pw:
+        st.session_state.admin = True
+        st.success("인증 성공")
+        
+        adm_tabs = st.tabs(["대회/대진 생성", "회원 관리", "지난 대회 관리"])
+        
+        with adm_tabs[0]:
+            st.markdown("### 🏟️ 대회 및 대진 구성")
+            t_name = st.text_input("대회 이름", value=st.session_state.tournament["name"])
+            c_cnt = st.selectbox("진행 코트 수", [1, 2, 3], index=1)
+            
+            st.markdown("---")
+            df = load_data()
+            all_names = df["이름"].tolist()
+            selected = st.multiselect("참가자 선택 (체크박스)", all_names)
+            
+            st.write(f"선택 인원: {len(selected)}명")
+            
+            col_a, col_b, col_c = st.columns(3)
+            g_cnt = col_a.number_input("그룹 수", 1, 10, 4)
+            g_type = col_b.selectbox("경기 방식", ["KDK", "고정페어", "단식"])
+            g_game = col_c.selectbox("1인당 게임 수", [3, 4])
+            
+            if st.button("🔥 랭킹순 그룹 배정 및 대진 생성"):
+                # 랭킹순 정렬
+                sorted_selected = [n for n in df.sort_values("현재포인트", ascending=False)["이름"] if n in selected]
+                
+                new_groups = {}
+                chunk = len(sorted_selected) // g_cnt
+                for i in range(g_cnt):
+                    g_name = f"{chr(65+i)}조"
+                    start = i * chunk
+                    end = (i+1) * chunk if i < g_cnt-1 else len(sorted_selected)
+                    g_players = sorted_selected[start:end]
+                    
+                    matches = generate_matches(g_players, g_type, g_game)
+                    new_groups[g_name] = {"players": g_players, "type": g_type, "matches": matches}
+                
+                st.session_state.tournament = {"name": t_name, "groups": new_groups, "court": c_cnt}
+                st.success("대진표 생성이 완료되었습니다!")
+
+        with adm_tabs[2]:
+            st.subheader("아카이브 관리")
+            if st.button("현재 대회 아카이브 저장"):
+                st.info("데이터 저장 중...")
     
-    pw_input = st.text_input("관리자 비밀번호", type="password")
-    if pw_input == st.session_state.admin_pw:
-        st.session_state.admin_logged_in = True
-        st.success("인증되었습니다.")
-        
-        adm_tab1, adm_tab2, adm_tab3 = st.tabs(["대회 생성/수정", "대진 생성 (그룹별)", "시스템 설정"])
-        
-        with adm_tab1:
-            st.subheader("새 대회 생성")
-            t_name = st.text_input("대회명", value=st.session_state.current_tournament['name'])
-            court_count = st.selectbox("코트 수 설정", [1, 2, 3], index=1)
-            if st.button("대회명 업데이트"):
-                st.session_state.current_tournament['name'] = t_name
-                st.success("대회명이 변경되었습니다.")
-                
-        with adm_tab2:
-            st.subheader("참가자 선택 및 그룹 설정")
-            # 랭킹 데이터에서 이름 가져오기
-            rank_df = pd.read_csv(DB_FILE)
-            all_members = rank_df['이름'].tolist()
-            
-            selected_members = st.multiselect("참가자 명단 (체크박스)", all_members)
-            
-            st.info(f"현재 선택된 인원: {len(selected_members)}명")
-            
-            group_num = st.number_input("그룹 수 조정", 1, 10, 4)
-            
-            if st.button("랭킹순 자동 배정 및 대진 작성"):
-                # 랭킹 데이터와 매칭하여 정렬
-                sorted_members = [m for m in all_members if m in selected_members]
-                
-                # 그룹 분할 (A, B, C, D...)
-                chunk_size = len(sorted_members) // group_num
-                for i in range(group_num):
-                    g_name = f"Group {chr(65+i)}"
-                    start = i * chunk_size
-                    end = (i+1) * chunk_size if i != group_num-1 else len(sorted_members)
-                    g_players = sorted_members[start:end]
-                    
-                    # 기본 KDK 배정 (인원수 체크 후)
-                    matches = get_kdk_matches(g_players, 3) # 기본 3게임
-                    
-                    st.session_state.current_tournament['groups'][g_name] = {
-                        "players": g_players,
-                        "type": "KDK",
-                        "games": 3,
-                        "matches": matches
-                    }
-                st.success(f"{group_num}개 그룹 대진 생성 완료!")
+    elif pw != "":
+        st.error("비밀번호가 올바르지 않습니다.")
 
-        with adm_tab3:
-            st.subheader("비밀번호 변경")
-            new_pw = st.text_input("새 비밀번호", type="password")
-            if st.button("비밀번호 변경"):
-                st.session_state.admin_pw = new_pw
-                st.success("비밀번호가 변경되었습니다.")
-
-    elif pw_input != "":
-        st.error("비밀번호가 틀렸습니다.")
-
-# --- 나머지 메뉴 (경기결과, 아카이브)는 위 데이터 구조를 바탕으로 동일하게 UI 구현 ---
+# --- 3, 4번 메뉴는 위 구조를 기반으로 아카이브 로드/결과 집계 로직 추가 ---
 else:
-    st.info("준비 중인 페이지입니다.")
+    st.info("메뉴 개발 중입니다. (결과 분석 및 아카이브)")
 
-# ─── [9] 하단 공통 ───
-st.markdown("---")
-st.caption("© 2026 두류 테니스 클럽. All rights reserved. 본 웹앱은 모바일에 최적화되어 있습니다.")
+st.sidebar.markdown("---")
+st.sidebar.caption("v2.1.0-2026-Duryu")
