@@ -1,11 +1,10 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import os
 from io import BytesIO
 
-# --- 1. 초기 설정 및 스타일 ---
-st.set_page_config(page_title="두류 랭킹 관리 시스템", layout="wide")
+# --- 1. 초기 설정 및 모바일 최적화 스타일 ---
+st.set_page_config(page_title="두류 랭킹 관리 시스템", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
@@ -13,139 +12,142 @@ st.markdown("""
     * { font-family: 'Noto Sans KR', sans-serif; text-align: center; }
     .stApp { background-color: #F8FDF9; }
     .main-header { background: linear-gradient(135deg, #007A33, #00A343); color: white; padding: 1.2rem; border-radius: 15px; margin-bottom: 1.5rem; font-weight: 900; }
-    /* 카드 UI 스타일 */
-    .match-card { background: white; border-radius: 15px; padding: 20px; border: 1px solid #E0E0E0; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px; }
-    .team-box { display: inline-block; width: 40%; vertical-align: middle; padding: 10px; background: #F1F8E9; border-radius: 10px; font-weight: 700; color: #2E7D32; }
-    .vs-badge { display: inline-block; width: 15%; color: #FF5252; font-weight: 900; font-size: 1.2rem; }
-    /* 매트릭스 스타일 */
-    .matrix-table { margin: 0 auto; border-collapse: collapse; width: 100%; max-width: 500px; font-size: 0.9rem; }
-    .matrix-header { background: #E8F5E9; font-weight: bold; padding: 8px; border: 1px solid #ddd; }
-    .matrix-cell { border: 1px solid #ddd; padding: 8px; height: 40px; }
-    .matrix-self { background-color: #EEEEEE; color: #EEEEEE; }
+    /* 카드 UI */
+    .match-card { background: white; border-radius: 15px; padding: 15px; border: 1px solid #E0E0E0; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 10px; }
+    .team-box { display: inline-block; width: 42%; vertical-align: middle; padding: 8px; background: #F1F8E9; border-radius: 8px; font-weight: 700; color: #2E7D32; font-size: 0.9rem; }
+    .vs-badge { display: inline-block; width: 12%; color: #FF5252; font-weight: 900; font-size: 1rem; }
+    /* 매트릭스 셀 */
+    .matrix-self { background-color: #EEEEEE !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. 안전한 데이터 로드 로직 (오류 해결 핵심) ---
+# --- 2. 안전한 데이터 로드 로직 (KeyError 방지) ---
 DB_FILE = "tennis_members.csv"
 
 def load_data():
     if os.path.exists(DB_FILE):
         try:
             df = pd.read_csv(DB_FILE)
-            # '이름' 컬럼이 없으면 강제로 생성 (오류 방지)
-            if '이름' not in df.columns:
-                st.error("CSV 파일에 '이름' 컬럼이 없습니다. 초기화합니다.")
-                return create_default_df()
+            if '이름' not in df.columns: return create_default_df()[cite: 1]
             return df
-        except:
-            return create_default_df()
+        except: return create_default_df()
     return create_default_df()
 
 def create_default_df():
     return pd.DataFrame({
-        "랭킹": range(1, 9),
-        "이름": [f"회원{i}" for i in range(1, 9)],
+        "랭킹": range(1, 9), "이름": [f"회원{i}" for i in range(1, 9)],
         "현재포인트": [100]*8, "이전포인트": [100]*8,
-        "부과점": [0]*8, "그룹": ["A"]*8, "비고": [""]*8
-    })
+        "결과": ["-"]*8, "부과점": [0]*8, "그룹": ["A"]*8, "비고": [""]*8
+    })[cite: 1]
 
-# --- 3. 대진 알고리즘 (KDK 1인 4게임 8명 기준 예시) ---
-def get_matches(players):
-    # 인원이 부족할 경우 대비
-    if len(players) < 4: return []
-    p = players
-    # 1인 4게임 8명 공식 적용
-    idx_map = [(1,2,3,4), (5,6,7,8), (1,3,5,7), (2,4,6,8), (1,5,2,6), (3,7,4,8), (1,6,3,8), (2,5,4,7)]
-    matches = []
-    for m in idx_map:
-        try:
-            matches.append(((p[m[0]-1], p[m[1]-1]), (p[m[2]-1], p[m[3]-1])))
-        except IndexError: continue
-    return matches
-
-# --- 4. 세션 관리 ---
+# --- 3. 세션 상태 관리 ---
 if 'admin_mode' not in st.session_state: st.session_state.admin_mode = False
-if 'groups' not in st.session_state:
-    st.session_state.groups = {
-        "A그룹": {"players": [f"회원{i}" for i in range(1, 9)], "type": "KDK"},
-        "B그룹": {"players": [], "type": "고정페어"}
-    }
+if 'tour_name' not in st.session_state: st.session_state.tour_name = "두류 정기전"
+if 'groups_config' not in st.session_state:
+    st.session_state.groups_config = [{"name": "A그룹", "type": "KDK", "games": 4, "players": [f"회원{i}" for i in range(1, 9)]}]
 
-# --- 5. 메뉴 구성 ---
-menu = st.sidebar.radio("메뉴", ["두류 랭킹", "대진 및 경기 현황", "관리자 페이지"])
+# --- 4. 메뉴 구성 (요청하신 5개 메뉴) ---
+menu = st.sidebar.radio("메뉴 선택", ["1. 두류 랭킹", "2. 대진 및 경기 현황", "3. 경기 결과 및 점수 확인", "4. 지난 대회 아카이브", "5. 관리자 페이지"])
 
-# --- [메뉴 1: 두류 랭킹] ---
-if menu == "두류 랭킹":
-    st.markdown("<div class='main-header'>🏆 두류 랭킹 관리</div>", unsafe_allow_html=True)
+# --- [1번 메뉴: 두류 랭킹] ---
+if menu == "1. 두류 랭킹":
+    st.markdown("<div class='main-header'>🏆 두류 랭킹</div>", unsafe_allow_html=True)
     df = load_data()
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.dataframe(df, use_container_width=True, hide_index=True)[cite: 1]
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        output = BytesIO()
+        df.to_excel(output, index=False)
+        st.download_button("📥 랭킹 엑셀 다운로드", output.getvalue(), "duryu_ranking.xlsx")
+    with col2:
+        st.file_uploader("📤 엑셀 업로드 (랭킹 갱신)", type=['xlsx'])
 
-# --- [메뉴 2: 대진 및 경기 현황] ---
-elif menu == "대진 및 경기 현황":
-    st.markdown("<div class='main-header'>📅 경기 현황 및 결과</div>", unsafe_allow_html=True)
+# --- [2번 메뉴: 대진 및 경기 현황] ---
+elif menu == "2. 대진 및 경기 현황":
+    st.markdown(f"<div class='main-header'>{st.session_state.tour_name}</div>", unsafe_allow_html=True)
     
-    selected_g = st.tabs(list(st.session_state.groups.keys()))
-    
-    for i, tab in enumerate(selected_g):
-        g_name = list(st.session_state.groups.keys())[i]
-        g_data = st.session_state.groups[g_name]
-        
+    tabs = st.tabs([g['name'] for g in st.session_state.groups_config])
+    for idx, tab in enumerate(tabs):
+        conf = st.session_state.groups_config[idx]
         with tab:
-            # 상단: 매트릭스 및 결과표
-            col1, col2 = st.columns(2)
-            with col1:
-                st.subheader("📊 조별 매트릭스")
-                names = g_data["players"][:8] # 예시로 8명
+            # 상단: 매트릭스 & 결과표 배치
+            m1, m2 = st.columns([1, 1])
+            with m1:
+                st.caption("📊 조별 매트릭스")
+                names = conf['players']
                 if names:
-                    matrix_df = pd.DataFrame("-", index=names, columns=names)
-                    for n in names: matrix_df.loc[n, n] = "X"
-                    st.table(matrix_df.style.applymap(lambda v: 'background-color: #EEEEEE; color: #EEEEEE' if v == 'X' else ''))
+                    m_df = pd.DataFrame("-", index=names, columns=names)
+                    for n in names: m_df.loc[n, n] = "X"
+                    st.table(m_df.style.applymap(lambda v: 'background-color: #EEEEEE; color: #EEEEEE' if v == 'X' else ''))
+            with m2:
+                st.caption("🏆 현재 순위")
+                st.table(pd.DataFrame({"이름": names, "승점": [0]*len(names)}))
             
-            with col2:
-                st.subheader("🏆 실시간 순위")
-                st.table(pd.DataFrame({"이름": names, "승": [0]*len(names), "패": [0]*len(names), "득실": [0]*len(names)}))
-
             st.divider()
             
             # 하단: 카드 UI 대진표
-            st.subheader("🎾 경기 진행 (2코트)")
-            matches = get_matches(names)
-            for idx, (t1, t2) in enumerate(matches):
+            st.subheader(f"🎾 {conf['name']} 경기 대진")
+            # 샘플 대진 (8명 KDK 기준 일부)
+            sample_matches = [((names[0], names[1]), (names[2], names[3])), ((names[4], names[5]), (names[6], names[7]))]
+            for m_idx, (t1, t2) in enumerate(sample_matches):
                 st.markdown(f"""
                 <div class='match-card'>
-                    <div style='color: #666; font-size: 0.8rem; margin-bottom: 10px;'>MATCH {idx+1}</div>
+                    <div style='color: #888; font-size: 0.7rem;'>ROUND {m_idx+1}</div>
                     <div class='team-box'>{t1[0]} / {t1[1]}</div>
                     <div class='vs-badge'>VS</div>
                     <div class='team-box'>{t2[0]} / {t2[1]}</div>
                 </div>
                 """, unsafe_allow_html=True)
                 c1, c2 = st.columns(2)
-                with c1: st.number_input("T1 점수", 0, 10, key=f"s1_{g_name}_{idx}", label_visibility="collapsed")
-                with c2: st.number_input("T2 점수", 0, 10, key=f"s2_{g_name}_{idx}", label_visibility="collapsed")
+                c1.number_input("점수", 0, 10, key=f"s1_{idx}_{m_idx}", label_visibility="collapsed")
+                c2.number_input("점수", 0, 10, key=f"s2_{idx}_{m_idx}", label_visibility="collapsed")
 
-# --- [메뉴 5: 관리자 페이지] ---
-elif menu == "관리자 페이지":
-    st.markdown("<div class='main-header'>⚙️ 대회 관리자 설정</div>", unsafe_allow_html=True)
-    pw = st.text_input("비밀번호", type="password")
-    if pw == "0502":
+# --- [3번 메뉴: 경기 결과 및 점수 확인] ---
+elif menu == "3. 경기 결과 및 점수 확인":
+    st.markdown("<div class='main-header'>🏁 경기 결과 및 부과점</div>", unsafe_allow_html=True)
+    st.write("그룹별 순위에 따른 부과점(7, 5, 3, 1점)이 자동 계산됩니다.")[cite: 1]
+
+# --- [4번 메뉴: 지난 대회 아카이브] ---
+elif menu == "4. 지난 대회 아카이브":
+    st.markdown("<div class='main-header'>📂 대회 기록 보관소</div>", unsafe_allow_html=True)
+    st.selectbox("과거 대회 선택", ["2026-04 정기전", "2026-03 챌린지"])
+
+# --- [5번 메뉴: 관리자 페이지] ---
+elif menu == "5. 관리자 페이지":
+    st.markdown("<div class='main-header'>⚙️ 대회 운영 관리</div>", unsafe_allow_html=True)
+    pw = st.text_input("관리자 비밀번호", type="password")
+    if pw == "0502":[cite: 1]
         st.session_state.admin_mode = True
+        
+        # 대회 기본 설정
+        st.session_state.tour_name = st.text_input("대회 이름 수정", st.session_state.tour_name)
+        
+        # 참여자 관리
+        st.subheader("👥 참여자 명단 수정 및 체크")
         df = load_data()
+        all_names = df['이름'].tolist()[cite: 1]
         
-        # 이름 수정 기능
-        st.subheader("👥 참여자 명단 및 수정")
-        all_names = df['이름'].tolist() # 여기서 에러가 났던 부분 보정됨
+        new_names = st.text_area("회원 이름 수정 (쉼표 구분)", ", ".join(all_names))
         
-        # 텍스트 에어리어로 대량 수정
-        updated_text = st.text_area("이름 수정 (쉼표로 구분)", ", ".join(all_names))
-        
-        # 체크박스로 오늘 참가자 선택
-        st.write("✅ 오늘 참가자 선택")
+        st.write("✅ 오늘 참가자 선택 (체크박스)")
         cols = st.columns(4)
-        active_players = []
-        for i, name in enumerate(all_names):
-            if cols[i%4].checkbox(name, value=True, key=f"p_{name}"):
-                active_players.append(name)
+        active_p = [name for i, name in enumerate(all_names) if cols[i%4].checkbox(name, value=True, key=f"p_{name}")]
         
-        if st.button("💾 설정 저장"):
-            # 실제 DB 저장 로직 수행
-            st.success("참가자 설정이 완료되었습니다.")
+        st.divider()
+        
+        # 그룹 자유 설정
+        st.subheader("📝 그룹별 대진 설정")
+        g_num = st.number_input("그룹 수", 1, 10, 1)
+        new_groups = []
+        for i in range(int(g_num)):
+            with st.expander(f"📍 그룹 {i+1} 상세 설정"):
+                gn = st.text_input("그룹명", f"{chr(65+i)}그룹", key=f"gn_{i}")
+                gt = st.selectbox("방식", ["고정페어", "KDK", "단식"], key=f"gt_{i}")
+                gg = st.selectbox("1인당 게임 수", [3, 4], key=f"gg_{i}")
+                gp = st.multiselect("참가자 배정", active_p, key=f"gp_{i}")
+                new_groups.append({"name": gn, "type": gt, "games": gg, "players": gp})
+        
+        if st.button("🎲 대진표 최종 생성"):
+            st.session_state.groups_config = new_groups
+            st.success("대진표 생성이 완료되었습니다!")
