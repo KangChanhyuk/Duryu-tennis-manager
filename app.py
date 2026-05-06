@@ -1,47 +1,50 @@
 import streamlit as st
 import pandas as pd
 import os
+import json
 import random
+from datetime import datetime
 from io import BytesIO
 
-# --- 1. 페이지 설정 및 디자인 ---
-st.set_page_config(page_title="두류 랭킹 관리 시스템", layout="wide")
+# --- 1. 환경 설정 및 스타일 ---
+st.set_page_config(page_title="두류 랭킹 시스템", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
     * { font-family: 'Noto Sans KR', sans-serif; text-align: center; }
-    .stApp { background-color: #F0F9F1; }
-    .main-header { background: linear-gradient(135deg, #2E7D32, #4CAF50); color: white; padding: 1.5rem; border-radius: 20px; margin-bottom: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.1); font-weight: 900; }
-    .match-card { background: white; border-radius: 15px; padding: 20px; border: 2px solid #E8F5E9; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px; display: flex; align-items: center; justify-content: center; }
-    .team-box { width: 40%; background: #E8F5E9; padding: 10px; border-radius: 10px; font-weight: 700; color: #1B5E20; font-size: 1.1rem; border: 1px solid #C8E6C9; }
-    .vs-badge { width: 10%; color: #D32F2F; font-weight: 900; font-size: 1.2rem; }
-    .player-edit { cursor: pointer; color: #2E7D32; text-decoration: underline; }
-    .stButton>button { border-radius: 10px; width: 100%; }
+    .stApp { background-color: #F8FDF9; }
+    .main-header { background: linear-gradient(135deg, #1D5B2E, #388E3C); color: white; padding: 1.5rem; border-radius: 15px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    .match-card { background: white; border-radius: 15px; padding: 20px; border: 1px solid #C8E6C9; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: center; }
+    .team-box { width: 42%; background: #E8F5E9; padding: 12px; border-radius: 10px; font-weight: 700; color: #1B5E20; font-size: 1.1rem; border: 1px solid #A5D6A7; }
+    .vs-badge { width: 12%; color: #D32F2F; font-weight: 900; font-size: 1.2rem; }
+    .group-tag { background: #FFEB3B; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 0.9rem; margin-bottom: 10px; display: inline-block; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. 데이터 로직 ---
+# --- 2. 데이터 유틸리티 ---
 DB_FILE = "tennis_members.csv"
-ARCHIVE_FILE = "tournament_archive.csv"
+HISTORY_FILE = "tournament_history.json"
 
-def load_data():
-    if os.path.exists(DB_FILE): return pd.read_csv(DB_FILE)
-    return pd.DataFrame({"랭킹": range(1, 33), "이름": [f"회원{i}" for i in range(1, 33)], "포인트": [100]*32})
+def load_members():
+    if os.path.exists(DB_FILE):
+        return pd.read_csv(DB_FILE).sort_values(by="랭킹")
+    return pd.DataFrame({"랭킹": range(1, 21), "이름": [f"회원{i}" for i in range(1, 21)], "포인트": [100]*20})
 
-def save_archive(data):
-    df = pd.DataFrame([data])
-    if os.path.exists(ARCHIVE_FILE): df.to_csv(ARCHIVE_FILE, mode='a', header=False, index=False)
-    else: df.to_csv(ARCHIVE_FILE, index=False)
+def load_history():
+    if os.path.exists(HISTORY_FILE):
+        with open(HISTORY_FILE, "r", encoding="utf-8") as f: return json.load(f)
+    return {}
 
-# --- 3. 대진 알고리즘 엔진 ---
-def get_kdk_logic(n, games):
-    # 1인 3게임 로직
+def save_history(history):
+    with open(HISTORY_FILE, "w", encoding="utf-8") as f: json.dump(history, f, ensure_ascii=False, indent=4)
+
+# --- 3. 대진 생성 엔진 ---
+def get_kdk_table(n, games):
     if games == 3:
         if n == 4: return [(1,4,2,3), (1,3,2,4), (1,2,3,4)]
         if n == 8: return [(1,2,3,4), (5,6,7,8), (1,8,2,7), (3,6,4,5), (1,4,5,8), (2,3,6,7)]
         if n == 12: return [(1,2,3,4), (5,6,7,8), (9,10,11,12), (1,3,5,7), (2,4,6,8), (9,11,1,5), (4,8,9,12), (6,7,10,11), (10,12,2,3)]
-    # 1인 4게임 로직
     elif games == 4:
         if n == 5: return [(1,2,3,4), (1,3,2,5), (1,4,3,5), (1,5,2,4), (2,3,4,5)]
         if n == 6: return [(1,3,2,4), (1,5,4,6), (2,3,5,6), (1,4,3,5), (2,6,3,4), (1,6,2,5)]
@@ -54,127 +57,137 @@ def get_kdk_logic(n, games):
 
 def generate_matches(players, mode, games):
     n = len(players)
-    if mode == "고정페어": # 1위-최하위 매칭
-        pairs = []
-        for i in range(n // 2):
-            pairs.append((players[i], players[n-1-i]))
+    if mode == "고정페어":
+        pairs = [(players[i], players[n-1-i]) for i in range(n // 2)]
         matches = []
-        # 페어들끼리 1인당 게임수(games)만큼 대진 생성
-        for i in range(games):
+        for _ in range(games):
             random.shuffle(pairs)
             for j in range(0, len(pairs)-1, 2):
                 matches.append((pairs[j], pairs[j+1]))
         return matches
     elif mode == "KDK":
-        indices = get_kdk_logic(n, games)
-        return [((players[idx[0]-1], players[idx[1]-1]), (players[idx[2]-1], players[idx[3]-1])) for idx in indices]
+        logic = get_kdk_table(n, games)
+        return [((players[i[0]-1], players[i[1]-1]), (players[i[2]-1], players[i[3]-1])) for i in logic]
     elif mode == "단식":
-        matches = []
-        for i in range(games):
+        res = []
+        for _ in range(games):
             pool = list(players)
             random.shuffle(pool)
             for j in range(0, len(pool)-1, 2):
-                matches.append(((pool[j], ""), (pool[j+1], "")))
-        return matches
+                res.append(((pool[j], ""), (pool[j+1], "")))
+        return res
     return []
 
-# --- 4. 세션 초기화 ---
-if 'admin_mode' not in st.session_state: st.session_state.admin_mode = False
-if 'groups' not in st.session_state: 
-    st.session_state.groups = [{"name": f"그룹 {chr(65+i)}", "num": 8, "mode": "고정페어", "games": 4} for i in range(4)]
-if 'participants' not in st.session_state: st.session_state.participants = []
+# --- 4. 메뉴 시스템 ---
+menu = st.sidebar.radio("메뉴 이동", ["🏆 실시간 랭킹", "📅 당일 대진표", "📂 지난 대회 기록", "⚙️ 대회 관리자"])
 
-# --- 5. 메뉴 구성 ---
-menu = st.sidebar.radio("메뉴 이동", ["두류 랭킹", "대진 및 경기 현황", "지난 대회 아카이브", "관리자 페이지"])
-
-# --- [1. 두류 랭킹] ---
-if menu == "두류 랭킹":
-    st.markdown("<div class='main-header'>🏆 두류 랭킹 시스템</div>", unsafe_allow_html=True)
-    df = load_data()
+# [1. 실시간 랭킹]
+if menu == "🏆 실시간 랭킹":
+    st.markdown("<div class='main-header'>🏆 두류 테니스 클럽 실시간 랭킹</div>", unsafe_allow_html=True)
+    df = load_members()
     st.dataframe(df, use_container_width=True, hide_index=True)
+    
     col1, col2 = st.columns(2)
     with col1:
         output = BytesIO()
         df.to_excel(output, index=False)
-        st.download_button("📥 랭킹 엑셀 다운로드", output.getvalue(), "ranking.xlsx")
+        st.download_button("📥 랭킹 엑셀 다운로드", output.getvalue(), "duryu_ranking.xlsx")
     with col2:
-        up_file = st.file_uploader("📤 랭킹 엑셀 업로드", type=['xlsx'])
+        up_file = st.file_uploader("📤 랭킹 엑셀 업로드 (전체 회원용)", type=['xlsx'])
         if up_file:
             pd.read_excel(up_file).to_csv(DB_FILE, index=False)
+            st.success("전체 랭킹이 업데이트되었습니다!")
             st.rerun()
 
-# --- [2. 대진 및 경기 현황] ---
-elif menu == "대진 및 경기 현황":
-    st.markdown(f"<div class='main-header'>📅 현재 대회 경기 현황</div>", unsafe_allow_html=True)
-    if not st.session_state.get('matches'):
-        st.warning("관리자 페이지에서 대진표를 먼저 생성해주세요.")
+# [2. 당일 대진표]
+elif menu == "📅 당일 대진표":
+    history = load_history()
+    if not history:
+        st.info("현재 생성된 대진표가 없습니다. 관리자 페이지에서 대진을 확정해주세요.")
     else:
-        for g_idx, g_data in enumerate(st.session_state.matches):
-            with st.expander(f"🎾 {g_data['name']} 경기 현황", expanded=True):
-                for m in g_data['matches']:
-                    st.markdown(f"""
-                    <div class='match-card'>
-                        <div class='team-box'>{m[0][0]} {f'& {m[0][1]}' if m[0][1] else ''}</div>
-                        <div class='vs-badge'>VS</div>
-                        <div class='team-box'>{m[1][0]} {f'& {m[1][1]}' if m[1][1] else ''}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-# --- [4. 관리자 페이지] ---
-elif menu == "관리자 페이지":
-    st.markdown("<div class='main-header'>⚙️ 대회 통합 관리</div>", unsafe_allow_html=True)
-    pw = st.text_input("관리자 비밀번호", type="password")
-    if pw == "0502":
-        st.session_state.admin_mode = True
+        latest = list(history.values())[-1]
+        st.markdown(f"<div class='main-header'>📅 {latest['title']}</div>", unsafe_allow_html=True)
         
-        # 1. 참여자 명단 및 랭킹 관리
-        st.subheader("👥 참여자 명단 (랭킹순)")
-        df = load_data()
-        current_players = df['이름'].tolist()
-        
-        # 텍스트로 확인 및 수정
-        p_text = st.text_area("회원 명단 (쉼표 구분)", ", ".join(current_players))
-        if st.button("명단 업데이트"):
-            new_list = [n.strip() for n in p_text.split(",") if n.strip()]
-            pd.DataFrame({"랭킹": range(1, len(new_list)+1), "이름": new_list}).to_csv(DB_FILE, index=False)
-            st.rerun()
+        for g_name, g_data in latest['groups'].items():
+            st.markdown(f"<div class='group-tag'>{g_name} - {g_data['mode']} ({g_data['games']}게임)</div>", unsafe_allow_html=True)
+            for m in g_data['matches']:
+                st.markdown(f"""<div class='match-card'><div class='team-box'>{m[0][0]} {f'& {m[0][1]}' if m[0][1] else ''}</div><div class='vs-badge'>VS</div><div class='team-box'>{m[1][0]} {f'& {m[1][1]}' if m[1][1] else ''}</div></div>""", unsafe_allow_html=True)
 
-        st.write("✅ 오늘 대회 참가자 선택 (체크박스)")
-        cols = st.columns(4)
-        active_p = []
-        for i, name in enumerate(current_players):
-            if cols[i%4].checkbox(name, value=True, key=f"p_{i}"):
-                active_p.append(name)
+# [4. 관리자 페이지]
+elif menu == "⚙️ 대회 관리자":
+    st.markdown("<div class='main-header'>⚙️ 대회 운영 및 대진 관리</div>", unsafe_allow_html=True)
+    if st.sidebar.text_input("관리자 암호", type="password") == "0502":
+        
+        # 1. 참여자 명단 필터링 (랭킹순)
+        st.subheader("✅ 오늘 대회 참여자 체크")
+        df_all = load_members()
+        
+        # 텍스트로 이름 수정 기능
+        col_txt, col_chk = st.columns([1, 2])
+        with col_txt:
+            st.caption("이름 오타 수정 시 사용")
+            edited_df = st.data_editor(df_all[['랭킹', '이름']], hide_index=True)
+            if st.button("회원 이름 수정 저장"):
+                df_all['이름'] = edited_df['이름']
+                df_all.to_csv(DB_FILE, index=False)
+                st.rerun()
+
+        with col_chk:
+            st.caption("오늘 출석한 회원만 체크하세요.")
+            cols = st.columns(3)
+            active_p = []
+            for i, (idx, row) in enumerate(df_all.iterrows()):
+                if cols[i%3].checkbox(f"{row['이름']} ({row['랭킹']}위)", value=False, key=f"p_{row['이름']}"):
+                    active_p.append(row['이름'])
         
         st.divider()
-
-        # 2. 그룹 설정
-        st.subheader("📝 그룹 및 대진 방식 설정")
-        col_g1, col_g2 = st.columns(2)
-        g_count = col_g1.number_input("그룹 수", 1, 10, len(st.session_state.groups))
-        court_count = col_g2.selectbox("코트 수 설정", [1, 2, 3], index=1)
         
-        new_groups = []
-        last_idx = 0
-        for i in range(int(g_count)):
-            with st.expander(f"📍 그룹 {i+1} 설정", expanded=True):
-                c1, c2, c3, c4 = st.columns([2,1,1,1])
-                gn = c1.text_input("그룹 이름", f"{chr(65+i)}그룹", key=f"gn_{i}")
-                gn_num = c2.number_input("인원수", 4, 32, 8, key=f"gnum_{i}")
-                gn_mode = c3.selectbox("방식", ["고정페어", "KDK", "단식"], key=f"gmode_{i}")
-                gn_games = c4.selectbox("인당 게임수", [3, 4], key=f"ggames_{i}")
-                
-                # 랭킹순 자동 배정 로직
-                g_players = active_p[last_idx : last_idx + int(gn_num)]
-                new_groups.append({"name": gn, "num": gn_num, "mode": gn_mode, "games": gn_games, "players": g_players})
-                last_idx += int(gn_num)
-                st.caption(f"배정된 인원: {', '.join(g_players) if g_players else '인원 부족'}")
+        # 2. 그룹 배정 (랭킹순 자동 슬라이싱)
+        if active_p:
+            st.subheader("📝 그룹별 대진 세부 설정")
+            g_count = st.number_input("오늘 운영할 그룹 수", 1, 6, 2)
+            court_count = st.selectbox("코트 수 (참고용)", [1, 2, 3], index=1)
+            
+            group_results = {}
+            current_ptr = 0
+            for i in range(g_count):
+                with st.expander(f"📍 그룹 {i+1} 설정 (현재까지 {len(active_p)}명 중 {current_ptr}명 배정됨)", expanded=True):
+                    c1, c2, c3, c4 = st.columns([2,1,1,1])
+                    g_name = c1.text_input(f"그룹 이름", f"{chr(65+i)}그룹", key=f"gn_{i}")
+                    g_num = c2.number_input(f"참여 인원", 4, 20, 8, key=f"gnum_{i}")
+                    g_mode = c3.selectbox(f"방식", ["고정페어", "KDK", "단식"], index=1, key=f"gm_{i}")
+                    g_games = c4.selectbox(f"게임수", [3, 4], index=1, key=f"gg_{i}")
+                    
+                    # 핵심: 체크된 참여자 중 랭킹순으로 자동 배정
+                    g_players = active_p[current_ptr : current_ptr + int(g_num)]
+                    st.info(f"배정 회원: {', '.join(g_players) if g_players else '없음'}")
+                    
+                    if g_players:
+                        group_results[g_name] = {
+                            "mode": g_mode, "games": g_games, 
+                            "players": g_players, "matches": generate_matches(g_players, g_mode, g_games)
+                        }
+                        current_ptr += int(g_num)
+            
+            if st.button("🎲 최종 대진표 확정 및 저장"):
+                history = load_history()
+                new_id = datetime.now().strftime("%Y%m%d_%H%M")
+                history[new_id] = {
+                    "title": f"{datetime.now().strftime('%m월 %d일')} 두류 대회",
+                    "groups": group_results
+                }
+                save_history(history)
+                st.success("대진표가 생성되었습니다! '당일 대진표' 메뉴에서 확인하세요.")
+                st.rerun()
 
-        if st.button("🎲 대진표 생성 및 대회 시작"):
-            all_matches = []
-            for g in new_groups:
-                if len(g['players']) >= 4:
-                    matches = generate_matches(g['players'], g['mode'], g['games'])
-                    all_matches.append({"name": g['name'], "matches": matches})
-            st.session_state.matches = all_matches
-            st.success("대진표가 생성되었습니다!")
+# [3. 지난 대회 기록]
+elif menu == "📂 지난 대회 기록":
+    st.markdown("<div class='main-header'>📂 지난 대회 아카이브</div>", unsafe_allow_html=True)
+    history = load_history()
+    for tid in reversed(list(history.keys())):
+        with st.expander(f"📌 {history[tid]['title']}"):
+            st.json(history[tid]['groups'])
+            if st.button(f"이 대회 삭제", key=f"del_{tid}"):
+                del history[tid]
+                save_history(history)
+                st.rerun()
