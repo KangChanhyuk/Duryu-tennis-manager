@@ -28,18 +28,14 @@ def apply_design():
             background: white; border-radius: 18px; padding: 25px; 
             border: 1px solid #E0E0E0; margin-bottom: 20px; 
             box-shadow: 0 6px 15px rgba(0,0,0,0.06);
-            display: flex; align-items: center; justify-content: space-around;
         }
         .team-unit { 
-            width: 42%; background: #F1F8E9; padding: 18px; 
-            border-radius: 15px; border: 2px solid #C8E6C9;
+            background: #F1F8E9; padding: 15px; 
+            border-radius: 12px; border: 1px solid #C8E6C9;
+            margin: 5px 0;
         }
-        .player-text { font-weight: 700; color: #2E7D32; font-size: 1.25rem; }
-        .vs-badge { 
-            background: #FF5252; color: white; width: 50px; height: 50px; 
-            border-radius: 50%; display: flex; align-items: center; 
-            justify-content: center; font-weight: 900;
-        }
+        .player-text { font-weight: 700; color: #2E7D32; font-size: 1.1rem; }
+        .score-input { width: 60px !important; text-align: center; font-weight: bold; }
         
         /* 그룹 구분선 */
         .group-header {
@@ -61,7 +57,6 @@ class DuryuDataHandler:
             df = pd.read_csv(DuryuDataHandler.MEMBER_FILE)
             df.columns = [c.strip() for c in df.columns]
             return df.sort_values(by="랭킹").reset_index(drop=True)
-        # 초기 기본 데이터
         return pd.DataFrame({"랭킹": range(1, 21), "이름": [f"회원{i}" for i in range(1, 21)], "급수": ["A"]*20})
 
     @staticmethod
@@ -86,35 +81,30 @@ class DuryuDataHandler:
 class TournamentEngine:
     @staticmethod
     def get_kdk_blueprint(n, games):
-        # 1인 3게임 기준
         if games == 3:
             if n == 4: return [(1,4,2,3), (1,3,2,4), (1,2,3,4)]
             if n == 8: return [(1,2,3,4), (5,6,7,8), (1,8,2,7), (3,6,4,5), (1,4,5,8), (2,3,6,7)]
             if n == 12: return [(1,2,3,4), (5,6,7,8), (9,10,11,12), (1,3,5,7), (2,4,6,8), (9,11,1,5), (4,8,9,12), (6,7,10,11), (10,12,2,3)]
-        # 1인 4게임 기준
         elif games == 4:
             if n == 5: return [(1,2,3,4), (1,3,2,5), (1,4,3,5), (1,5,2,4), (2,3,4,5)]
             if n == 6: return [(1,3,2,4), (1,5,4,6), (2,3,5,6), (1,4,3,5), (2,6,3,4), (1,6,2,5)]
-            if n == 7: return [(1,2,3,4), (5,6,1,7), (2,3,5,7), (1,4,6,7), (3,5,2,4), (1,6,2,5), (4,6,3,7)]
             if n == 8: return [(1,2,3,4), (5,6,7,8), (1,3,5,7), (2,4,6,8), (1,5,2,6), (3,7,4,8), (1,6,3,8), (2,5,4,7)]
-            if n == 10: return [(1,2,3,5), (6,7,8,10), (2,3,4,6), (7,8,1,9), (3,4,5,7), (8,9,2,10), (4,5,6,8), (1,3,9,10), (5,6,7,9), (1,10,2,4)]
         return []
 
     @staticmethod
     def build_matches(players, mode, games):
         n = len(players)
         if mode == "고정페어":
-            # 1위-최하위, 2위-차하위 밸런스 페어링
             pairs = [(players[i], players[n-1-i]) for i in range(n // 2)]
             matches = []
             for _ in range(games):
                 random.shuffle(pairs)
                 for j in range(0, len(pairs)-1, 2):
-                    matches.append((pairs[j], pairs[j+1]))
+                    matches.append({"team1": pairs[j], "team2": pairs[j+1], "score1": 0, "score2": 0})
             return matches
         elif mode == "KDK":
             blueprint = TournamentEngine.get_kdk_blueprint(n, games)
-            return [((players[i[0]-1], players[i[1]-1]), (players[i[2]-1], players[i[3]-1])) for i in blueprint]
+            return [{"team1": (players[i[0]-1], players[i[1]-1]), "team2": (players[i[2]-1], players[i[3]-1]), "score1": 0, "score2": 0} for i in blueprint]
         return []
 
 # --- [4. 메인 어플리케이션] ---
@@ -123,141 +113,159 @@ def main():
     handler = DuryuDataHandler()
     engine = TournamentEngine()
     
-    # 세션 상태 초기화 (전체 선택용)
+    # 세션 상태 초기화
     if 'select_all' not in st.session_state: st.session_state.select_all = False
+    if 'temp_attendees' not in st.session_state: st.session_state.temp_attendees = []
 
-    st.sidebar.title("🎾 Duryu Admin")
-    admin_code = st.sidebar.text_input("관리자 코드", type="password")
-    is_admin = (admin_code == "0502")
+    st.sidebar.title("🎾 두류 테니스 관리")
+    menu = st.sidebar.radio("메뉴 이동", ["🏆 클럽 랭킹", "📊 경기 현황 및 점수입력", "⚙️ 관리자 설정"])
 
-    menu = st.sidebar.radio("메뉴 이동", ["📊 회원 랭킹 관리", "📝 대회 참가 신청", "⚙️ 대진 생성 및 운영", "📅 경기 현황판"])
-
-    # --- 메뉴 1: 회원 랭킹 관리 ---
-    if menu == "📊 회원 랭킹 관리":
-        st.markdown("<div class='main-header'>📊 두류 테니스 클럽 회원 DB</div>", unsafe_allow_html=True)
+    # --- 메뉴 1: 클럽 랭킹 (조회 전용) ---
+    if menu == "🏆 클럽 랭킹":
+        st.markdown("<div class='main-header'>🏆 두류 테니스 클럽 회원 랭킹</div>", unsafe_allow_html=True)
         df_members = handler.load_members()
-        
-        if is_admin:
-            st.subheader("📤 전체 명단 엑셀 업로드")
-            excel_file = st.file_uploader("랭킹 엑셀 파일을 선택하세요", type=['xlsx'])
-            if excel_file:
-                new_df = pd.read_excel(excel_file)
-                handler.save_members(new_df)
-                st.success("회원 명단이 성공적으로 저장되었습니다.")
-                st.rerun()
-
         st.dataframe(df_members, use_container_width=True, hide_index=True)
-        
-        # 엑셀 다운로드 기능
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df_members.to_excel(writer, index=False)
-        st.download_button("📥 현재 명단 엑셀 다운로드", output.getvalue(), "duryu_members_list.xlsx")
 
-    # --- 메뉴 2: 대회 참가 신청 (텍스트 입력 및 체크박스) ---
-    elif menu == "📝 대회 참가 신청":
-        st.markdown("<div class='main-header'>📝 당일 대회 참가자 접수</div>", unsafe_allow_html=True)
-        df_all = handler.load_members()
-        
-        col_text, col_check = st.columns([1, 1.5])
-        
-        with col_text:
-            st.subheader("1️⃣ 텍스트로 일괄 입력")
-            st.caption("카톡 명단을 복사해서 붙여넣으세요. (이름 사이 쉼표나 줄바꿈)")
-            input_text = st.text_area("참가자 명단 입력", height=300)
-            text_names = [n.strip() for n in input_text.replace('\n', ',').split(',') if n.strip()]
-            
-        with col_check:
-            st.subheader("2️⃣ 명단에서 선택")
-            # 전체 선택 기능
-            if st.checkbox("🔄 전체 선택 / 해제", value=st.session_state.select_all):
-                st.session_state.select_all = True
-            else:
-                st.session_state.select_all = False
-            
-            selected_names = []
-            chk_cols = st.columns(3)
-            for i, row in df_all.iterrows():
-                is_checked = st.session_state.select_all or (row['이름'] in text_names)
-                if chk_cols[i%3].checkbox(f"{row['이름']} ({row['랭킹']}위)", value=is_checked, key=f"att_{row['이름']}"):
-                    selected_names.append(row['이름'])
-        
-        # 중복 제거 및 랭킹 정렬
-        final_list = sorted(list(set(selected_names)), key=lambda x: df_all[df_all['이름'] == x]['랭킹'].values[0] if x in df_all['이름'].values else 999)
-        st.session_state.current_attendees = final_list
-        
-        st.info(f"✅ 현재 접수된 인원: {len(final_list)}명")
-        st.write(", ".join(final_list))
-
-    # --- 메뉴 3: 대진 생성 및 운영 ---
-    elif menu == "⚙️ 대진 생성 및 운영":
-        if not is_admin:
-            st.error("관리자 권한이 필요합니다."); return
-        
-        st.markdown("<div class='main-header'>⚙️ 그룹 배정 및 대진 생성</div>", unsafe_allow_html=True)
-        
-        attendees = st.session_state.get('current_attendees', [])
-        if not attendees:
-            st.warning("먼저 참가 신청 메뉴에서 인원을 선택해주세요."); return
-            
-        df_all = handler.load_members()
-        
-        # 그룹 설정
-        g_count = st.number_input("나눌 그룹 수", 1, 6, 2)
-        final_tournament = {}
-        ptr = 0
-        
-        for i in range(g_count):
-            with st.expander(f"📍 그룹 {i+1} 세부 설정", expanded=True):
-                c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
-                g_name = c1.text_input("그룹명", f"{chr(65+i)}그룹", key=f"gn_{i}")
-                g_size = c2.number_input("인원수", 4, 30, 8, key=f"gs_{i}")
-                g_mode = c3.selectbox("방식", ["고정페어", "KDK"], index=1, key=f"gm_{i}")
-                g_games = c4.selectbox("게임수", [3, 4], index=1, key=f"gg_{i}")
-                
-                # 랭킹순 자동 슬라이싱
-                assigned = attendees[ptr : ptr + int(g_size)]
-                st.markdown(f"**배정된 명단:** {', '.join(assigned)}")
-                
-                if assigned:
-                    final_tournament[g_name] = {
-                        "mode": g_mode, "games": g_games, "players": assigned,
-                        "matches": engine.build_matches(assigned, g_mode, g_games)
-                    }
-                    ptr += int(g_size)
-
-        if st.button("🚀 대진표 최종 확정 및 저장"):
-            history = handler.load_history()
-            tid = datetime.now().strftime("%Y-%m-%d %H:%M")
-            history[tid] = {
-                "title": f"{datetime.now().strftime('%m월 %d일')} 두류 정기전",
-                "groups": final_tournament
-            }
-            handler.save_history(history)
-            st.success("대진표가 생성되었습니다! '경기 현황판' 메뉴를 확인하세요.")
-
-    # --- 메뉴 4: 경기 현황판 ---
-    elif menu == "📅 경기 현황판":
+    # --- 메뉴 2: 경기 현황 및 점수입력 (모든 유저 가능) ---
+    elif menu == "📊 경기 현황 및 점수입력":
         history = handler.load_history()
         if not history:
-            st.info("진행 중인 대회가 없습니다.")
+            st.info("현재 진행 중인 대회가 없습니다.")
         else:
             latest_id = list(history.keys())[-1]
             data = history[latest_id]
             st.markdown(f"<div class='main-header'>📅 {data['title']}</div>", unsafe_allow_html=True)
             
+            # 점수 수정을 위한 세션 상태 업데이트 로직
+            updated = False
+            
             for g_name, g_info in data['groups'].items():
-                st.markdown(f"<div class='group-header'>{g_name} ({g_info['mode']})</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='group-header'>{g_name} - {g_info['mode']} ({g_info['games']}게임)</div>", unsafe_allow_html=True)
+                
+                # 2열 배치
                 cols = st.columns(2)
                 for idx, m in enumerate(g_info['matches']):
                     with cols[idx % 2]:
-                        st.markdown(f"""
-                        <div class='match-card'>
-                            <div class='team-unit'><div class='player-text'>{m[0][0]}</div><div style='font-size:0.8rem;'>{m[0][1]}</div></div>
-                            <div class='vs-badge'>VS</div>
-                            <div class='team-unit'><div class='player-text'>{m[1][0]}</div><div style='font-size:0.8rem;'>{m[1][1]}</div></div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        with st.container():
+                            st.markdown("<div class='match-card'>", unsafe_allow_html=True)
+                            c1, c_vs, c2 = st.columns([4, 1, 4])
+                            
+                            with c1:
+                                st.markdown(f"<div class='team-unit'><span class='player-text'>{m['team1'][0]} & {m['team1'][1]}</span></div>", unsafe_allow_html=True)
+                                s1 = st.number_input("점수", 0, 10, m['score1'], key=f"s1_{g_name}_{idx}")
+                            
+                            with c_vs:
+                                st.markdown("<h3 style='margin-top:40px;'>VS</h3>", unsafe_allow_html=True)
+                                
+                            with c2:
+                                st.markdown(f"<div class='team-unit'><span class='player-text'>{m['team2'][0]} & {m['team2'][1]}</span></div>", unsafe_allow_html=True)
+                                s2 = st.number_input("점수", 0, 10, m['score2'], key=f"s2_{g_name}_{idx}")
+                            
+                            # 점수가 바뀌면 저장 준비
+                            if s1 != m['score1'] or s2 != m['score2']:
+                                m['score1'], m['score2'] = s1, s2
+                                updated = True
+                            st.markdown("</div>", unsafe_allow_html=True)
+                st.divider()
+            
+            if updated:
+                handler.save_history(history)
+                st.toast("점수가 실시간으로 반영되었습니다!")
+
+    # --- 메뉴 3: 관리자 설정 (암호 보호) ---
+    elif menu == "⚙️ 관리자 설정":
+        st.markdown("<div class='main-header'>⚙️ 관리자 전용 대회 설정</div>", unsafe_allow_html=True)
+        admin_pw = st.text_input("관리자 암호를 입력하세요", type="password")
+        
+        if admin_pw == "0502":
+            tab1, tab2, tab3 = st.tabs(["👥 회원/참여자 관리", "🚀 대회 생성", "📂 기록 삭제"])
+            
+            with tab1:
+                st.subheader("회원 명단 업데이트 및 참여자 접수")
+                df_all = handler.load_members()
+                
+                # 엑셀 업로드
+                up_file = st.file_uploader("랭킹 엑셀 업로드", type=['xlsx'])
+                if up_file:
+                    handler.save_members(pd.read_excel(up_file))
+                    st.success("회원 명단 갱신 완료!")
+                    st.rerun()
+
+                st.divider()
+                st.write("### 당일 참가자 선택")
+                
+                # 텍스트 일괄 입력
+                input_text = st.text_area("카톡 명단 붙여넣기 (이름 사이 쉼표나 줄바꿈)", help="입력 시 아래 체크박스가 자동으로 체크됩니다.")
+                text_names = [n.strip() for n in input_text.replace('\n', ',').split(',') if n.strip()]
+                
+                # 전체 선택
+                if st.checkbox("전체 선택/해제", value=st.session_state.select_all):
+                    st.session_state.select_all = True
+                else:
+                    st.session_state.select_all = False
+                
+                selected_names = []
+                chk_cols = st.columns(4)
+                for i, row in df_all.iterrows():
+                    is_checked = st.session_state.select_all or (row['이름'] in text_names)
+                    if chk_cols[i%4].checkbox(f"{row['이름']} ({row['랭킹']}위)", value=is_checked, key=f"admin_att_{row['이름']}"):
+                        selected_names.append(row['이름'])
+                
+                # 최종 참여자 세션 저장 (랭킹순 정렬)
+                final_list = sorted(list(set(selected_names)), key=lambda x: df_all[df_all['이름'] == x]['랭킹'].values[0] if x in df_all['이름'].values else 999)
+                st.session_state.temp_attendees = final_list
+                st.success(f"현재 선택된 인원: {len(final_list)}명")
+
+            with tab2:
+                st.subheader("그룹 슬라이싱 및 대진표 생성")
+                attendees = st.session_state.temp_attendees
+                if not attendees:
+                    st.warning("먼저 '참여자 관리' 탭에서 인원을 선택해주세요.")
+                else:
+                    g_count = st.number_input("그룹 수", 1, 6, 2)
+                    final_tournament = {}
+                    ptr = 0
+                    
+                    for i in range(g_count):
+                        with st.expander(f"📍 {i+1}번 그룹 설정", expanded=True):
+                            c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
+                            g_name = c1.text_input("그룹명", f"{chr(65+i)}그룹", key=f"set_gn_{i}")
+                            g_size = c2.number_input("인원수", 4, 30, 8, key=f"set_gs_{i}")
+                            g_mode = c3.selectbox("방식", ["고정페어", "KDK"], index=1, key=f"set_gm_{i}")
+                            g_games = c4.selectbox("게임수", [3, 4], index=1, key=f"set_gg_{i}")
+                            
+                            # 랭킹순 슬라이싱
+                            assigned = attendees[ptr : ptr + int(g_size)]
+                            st.info(f"배정 인원: {', '.join(assigned)}")
+                            
+                            if assigned:
+                                final_tournament[g_name] = {
+                                    "mode": g_mode, "games": g_games, "players": assigned,
+                                    "matches": engine.build_matches(assigned, g_mode, g_games)
+                                }
+                                ptr += int(g_size)
+
+                    if st.button("🚀 대진표 생성 및 공식 등록"):
+                        history = handler.load_history()
+                        tid = datetime.now().strftime("%Y%m%d_%H%M")
+                        history[tid] = {
+                            "title": f"{datetime.now().strftime('%m월 %d일')} 정기전",
+                            "groups": final_tournament
+                        }
+                        handler.save_history(history)
+                        st.balloons()
+                        st.success("대회가 공식 등록되었습니다!")
+
+            with tab3:
+                st.subheader("과거 기록 관리")
+                history = handler.load_history()
+                for tid in reversed(list(history.keys())):
+                    if st.button(f"🗑 {history[tid]['title']} ({tid}) 삭제"):
+                        del history[tid]
+                        handler.save_history(history)
+                        st.rerun()
+        elif admin_pw != "":
+            st.error("암호가 올바르지 않습니다.")
 
 if __name__ == "__main__":
     main()
