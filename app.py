@@ -3,32 +3,65 @@ import pandas as pd
 import random, os
 from datetime import date
 
-# ── 페이지 설정 ──────────────────────────────────────────────
+# ── 페이지 설정 (사이드바 기본 표시로 변경) ──────────────────────────────────────────────
 st.set_page_config(page_title="두류 테니스", page_icon="🎾",
-                   layout="wide", initial_sidebar_state="collapsed")
+                    layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&display=swap');
 html,body,[class*="css"],button,input{font-family:'Noto Sans KR',sans-serif!important}
-.block-container{padding:.5rem .6rem 2rem!important;max-width:100%!important}
-/* 탭 크게 */
+.block-container{padding:1.5rem 2rem 2rem!important;max-width:100%!important}
+
+/* 사이드바 스타일링 */
+[data-testid="stSidebar"] {
+    background-color: #f8f9fa;
+    border-right: 1px solid #e9ecef;
+}
+[data-testid="stSidebar"] .stRadio > div {
+    gap: 10px;
+}
+/* 사이드바 메뉴 버튼처럼 보이게 */
+div[data-testid="stSidebar"] .stRadio label {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 10px 15px !important;
+    margin-bottom: 5px;
+    transition: all 0.2s;
+    font-weight: 600 !important;
+    color: #444 !important;
+}
+div[data-testid="stSidebar"] .stRadio label:hover {
+    border-color: #1e88e5;
+    background: #f0f7ff;
+}
+div[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > div[data-bv-tab="true"] {
+    background: transparent !important;
+}
+
+/* 탭 스타일 */
 button[data-baseweb="tab"]{font-size:1.05rem!important;font-weight:700!important;padding:10px 20px!important;border-radius:10px 10px 0 0!important;white-space:nowrap!important}
 button[data-baseweb="tab"][aria-selected="true"]{background:linear-gradient(135deg,#1565c0,#1e88e5)!important;color:#fff!important}
+
 /* 버튼 */
 .stButton>button{border-radius:10px!important;font-weight:700!important;transition:all .2s!important}
 .stButton>button:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.15)!important}
+
 /* 숫자 입력 가운데 */
 input[type="number"]{text-align:center!important;font-size:1.2rem!important;font-weight:700!important}
 div[data-testid="stNumberInput"] input{font-size:1.3rem!important;font-weight:900!important;text-align:center!important}
+
 /* 테이블 가운데 */
 th,td{text-align:center!important;vertical-align:middle!important}
+
 /* 타이틀 */
-.main-title{text-align:center;font-size:clamp(1.4rem,5vw,2.4rem);font-weight:900;
+.main-title{text-align:left;font-size:clamp(1.4rem,5vw,2.2rem);font-weight:900;
   background:linear-gradient(135deg,#1565c0,#42a5f5);-webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;background-clip:text;margin:.3rem 0 1rem}
+  -webkit-text-fill-color:transparent;background-clip:text;margin-bottom:1.5rem}
 .sec-title{font-size:clamp(.95rem,3.5vw,1.2rem);font-weight:900;color:#1565c0;
   border-left:5px solid #42a5f5;padding-left:11px;margin:14px 0 8px}
+
 /* 팀 도형 */
 .team-shape-wrap{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 4px}
 .team-shape{border-radius:14px;padding:9px 13px;text-align:center;font-weight:800;
@@ -48,6 +81,7 @@ th,td{text-align:center!important;vertical-align:middle!important}
   margin:13px 0 7px;text-align:center}
 .match-wrap{background:#fff;border-radius:13px;padding:9px 7px 11px;margin:5px 0;
   box-shadow:0 3px 10px rgba(0,0,0,.09);border:1.5px solid #e3eaf5}
+
 /* 참가확인 카드 */
 .acard{background:#f0f7ff;border:1.5px solid #90caf9;border-radius:11px;padding:9px 13px;
   margin:3px 0;display:flex;align-items:center;gap:9px;
@@ -56,7 +90,7 @@ th,td{text-align:center!important;vertical-align:middle!important}
 .ano{border-color:#ef9a9a;background:#fff3f3}
 .matrix-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 @media(max-width:640px){
-  .block-container{padding:.3rem .3rem 2rem!important}
+  .block-container{padding:.5rem .5rem 2rem!important}
   .team-shape{min-width:68px;padding:7px 7px}
 }
 </style>
@@ -244,24 +278,40 @@ def draw_matrix(g, gidx):
         st.markdown("**🏅 그룹 순위**")
         st.dataframe(rdf,use_container_width=True,hide_index=True)
 
-# ── 네비게이션 ────────────────────────────────────────────────
-MENUS={"ranking":"🏆 랭킹","schedule":"📅 대진표","result":"📊 결과",
-       "attend":"✅ 참가확인","admin":"⚙️ 관리자"}
-if "menu" not in S: S["menu"]="ranking"
-nav=st.columns(len(MENUS))
-for ci,(k,v) in enumerate(MENUS.items()):
-    with nav[ci]:
-        tp="primary" if S["menu"]==k else "secondary"
-        if st.button(v,key=f"nav_{k}",use_container_width=True,type=tp):
-            S["menu"]=k; st.rerun()
-st.divider()
+# ── 왼쪽 사이드바 네비게이션 (이동된 부분) ──────────────────────────
+with st.sidebar:
+    st.markdown("<h2 style='text-align:center; color:#1565c0;'>🎾 Duryu Tennis</h2>", unsafe_allow_html=True)
+    st.image("https://cdn-icons-png.flaticon.com/512/2853/2853361.png", width=80)
+    st.divider()
+    
+    MENUS={"ranking":"🏆 실시간 랭킹","schedule":"📅 대진표/전적","result":"📊 경기 결과",
+           "attend":"✅ 참가확인","admin":"⚙️ 관리자 센터"}
+    
+    # 딕셔너리 키-값 쌍을 이용해 라디오 버튼 생성
+    selected_menu_label = st.radio(
+        "MENU",
+        options=list(MENUS.values()),
+        index=list(MENUS.keys()).index(S.get("menu", "ranking")),
+        label_visibility="collapsed"
+    )
+    
+    # 라벨을 다시 키값으로 변환하여 세션 상태 저장
+    for k, v in MENUS.items():
+        if v == selected_menu_label:
+            S["menu"] = k
+            break
+            
+    st.divider()
+    st.caption(f"오늘 날짜: {date.today()}")
+    st.info(f"현재 대회: {S.t_name}")
+
 menu=S["menu"]
 
 # ════════════════════════════════════════════════════════════
-# 🏆 랭킹
+# 🏆 랭킹 (메인 화면 시작)
 # ════════════════════════════════════════════════════════════
 if menu=="ranking":
-    st.markdown("<div class='main-title'>🎾 두류 테니스 랭킹</div>",unsafe_allow_html=True)
+    st.markdown("<div class='main-title'>🏆 실시간 통합 랭킹</div>",unsafe_allow_html=True)
     df=load_rank()
     if df.empty: st.info("관리자에서 랭킹 데이터를 업로드하세요.")
     else:
@@ -275,7 +325,7 @@ if menu=="ranking":
 # 📅 대진표 (읽기전용 — 점수 표시만)
 # ════════════════════════════════════════════════════════════
 elif menu=="schedule":
-    st.markdown("<div class='main-title'>📅 대진표</div>",unsafe_allow_html=True)
+    st.markdown("<div class='main-title'>📅 대진표 및 전적</div>",unsafe_allow_html=True)
     if not S.schedule: st.warning("⚠️ 관리자에서 대진을 먼저 생성하세요.")
     else:
         gnames=list(S.schedule.keys())
@@ -308,7 +358,7 @@ elif menu=="schedule":
 # 📊 경기 결과
 # ════════════════════════════════════════════════════════════
 elif menu=="result":
-    st.markdown("<div class='main-title'>📊 경기 결과</div>",unsafe_allow_html=True)
+    st.markdown("<div class='main-title'>📊 전체 경기 결과</div>",unsafe_allow_html=True)
     if not S.scores: st.info("아직 입력된 점수가 없습니다.")
     else:
         gnames=list(S.schedule.keys()) if S.schedule else []
@@ -346,7 +396,7 @@ elif menu=="result":
 # ✅ 참가 확인
 # ════════════════════════════════════════════════════════════
 elif menu=="attend":
-    st.markdown("<div class='main-title'>✅ 참가 확인</div>",unsafe_allow_html=True)
+    st.markdown("<div class='main-title'>✅ 대회 참가 확인</div>",unsafe_allow_html=True)
     st.markdown(f"""<div style='background:linear-gradient(135deg,#e3f2fd,#bbdefb);
         border:2px solid #42a5f5;border-radius:13px;padding:13px 17px;margin-bottom:13px'>
         <div style='font-size:1.2rem;font-weight:900;color:#1565c0'>🏆 {S.t_name}</div>
@@ -354,8 +404,8 @@ elif menu=="attend":
     </div>""",unsafe_allow_html=True)
     if not S.players: st.info("관리자에서 참가자를 먼저 등록하세요.")
     else:
-        st.markdown('<div class="sec-title">참가자 명단 및 참가 확인</div>',unsafe_allow_html=True)
-        st.caption("✏️ 본인 이름 옆 체크박스를 눌러 참가를 확인하세요.")
+        st.markdown('<div class="sec-title">참가자 명단 및 체크인</div>',unsafe_allow_html=True)
+        st.caption("✏️ 본인 이름 옆 체크박스를 눌러 참가를 확정하세요.")
         attend=S.attendance; confirmed=0
         for pi,pname in enumerate(S.players):
             is_ok=attend.get(pname,False)
@@ -371,7 +421,7 @@ elif menu=="attend":
             if is_ok: confirmed+=1
         st.divider()
         st.markdown(f"<div style='text-align:center;font-size:1.05rem;font-weight:700;color:#1565c0;"
-                    f"padding:8px;background:#e3f2fd;border-radius:9px'>✅ 참가 확인: {confirmed}명 / 전체: {len(S.players)}명</div>",
+                    f"padding:8px;background:#e3f2fd;border-radius:9px'>✅ 현재 참가 확인: {confirmed}명 / 전체: {len(S.players)}명</div>",
                     unsafe_allow_html=True)
         if st.button("💾 참가 현황 저장",use_container_width=True):
             rows=[{"대회명":S.t_name,"이름":p,"참가확인":attend.get(p,False)} for p in S.players]
@@ -383,10 +433,10 @@ elif menu=="attend":
 # ════════════════════════════════════════════════════════════
 elif menu=="admin":
     st.markdown("<div class='main-title'>⚙️ 관리자 센터</div>",unsafe_allow_html=True)
-    pw=st.text_input("🔒 비밀번호",type="password",placeholder="비밀번호 입력")
+    pw=st.text_input("🔒 보안 비밀번호",type="password",placeholder="관리자 비밀번호를 입력하세요")
     if pw=="0502": S.is_admin=True
     if not S.is_admin: st.stop()
-    st.success("✅ 관리자 모드")
+    st.success("✅ 관리자 권한이 승인되었습니다.")
 
     tabs=st.tabs(["🏆 대회 생성","📂 랭킹 관리","🎯 대진 생성","🎮 점수 입력","💾 결과 반영"])
 
@@ -409,7 +459,7 @@ elif menu=="admin":
                                    columns=["대회명","날짜","장소","방식","상태"])],ignore_index=True)
                     save_tour(tdf); st.success(f"🎉 '{tn}' 대회 생성 완료!"); st.rerun()
 
-        st.markdown('<div class="sec-title">대회 목록</div>',unsafe_allow_html=True)
+        st.markdown('<div class="sec-title">기존 대회 목록</div>',unsafe_allow_html=True)
         tdf=load_tour()
         if tdf.empty: st.info("생성된 대회 없음")
         else:
@@ -421,24 +471,24 @@ elif menu=="admin":
                             f" <span style='color:{sc};font-weight:800'>[{row['상태']}]</span></div>",unsafe_allow_html=True)
                 ca,cb=st.columns(2)
                 with ca:
-                    if st.button("✅ 완료",key=f"dn{i}",use_container_width=True):
+                    if st.button("✅ 완료 처리",key=f"dn{i}",use_container_width=True):
                         tdf.loc[i,"상태"]="완료"; save_tour(tdf); st.rerun()
                 with cb:
-                    if st.button("🗑 삭제",key=f"dl{i}",use_container_width=True):
+                    if st.button("🗑 삭제하기",key=f"dl{i}",use_container_width=True):
                         save_tour(tdf.drop(index=i).reset_index(drop=True)); st.rerun()
 
     # ── 탭2: 랭킹 관리 ────────────────────────────────────────
     with tabs[1]:
-        st.markdown('<div class="sec-title">랭킹 파일 업로드</div>',unsafe_allow_html=True)
+        st.markdown('<div class="sec-title">랭킹 데이터 마스터 업로드</div>',unsafe_allow_html=True)
         st.caption("컬럼명에 '이름/name/선수/회원', '포인트/point/pts/점수' 등이 포함되면 자동 인식합니다.")
-        f=st.file_uploader("엑셀/CSV 선택",type=["csv","xlsx"])
+        f=st.file_uploader("엑셀(XLSX) 또는 CSV 파일 선택",type=["csv","xlsx"])
         if f:
             df_up=smart_read(f)
             if df_up is not None:
                 st.dataframe(df_up.head(15),use_container_width=True,hide_index=True)
-                if st.button("💾 랭킹 저장",use_container_width=True,type="primary"):
-                    save_rank(df_up); st.success("✅ 랭킹 저장 완료!")
-        st.markdown('<div class="sec-title">현재 랭킹</div>',unsafe_allow_html=True)
+                if st.button("💾 데이터베이스에 저장",use_container_width=True,type="primary"):
+                    save_rank(df_up); st.success("✅ 랭킹 정보 저장 완료!")
+        st.markdown('<div class="sec-title">현재 저장된 전체 랭킹</div>',unsafe_allow_html=True)
         cur=load_rank()
         if not cur.empty:
             cur=cur.sort_values("현재포인트",ascending=False).reset_index(drop=True)
@@ -448,36 +498,36 @@ elif menu=="admin":
 
     # ── 탭3: 대진 생성 ────────────────────────────────────────
     with tabs[2]:
-        st.markdown('<div class="sec-title">참가자 등록</div>',unsafe_allow_html=True)
-        raw=st.text_area("참가자 (쉼표 구분)",value=", ".join(S.players),height=70)
-        if st.button("📝 참가자 등록",use_container_width=True):
+        st.markdown('<div class="sec-title">1단계: 참가 선수 명단 확정</div>',unsafe_allow_html=True)
+        raw=st.text_area("참가자 명단 (쉼표로 구분하여 입력)",value=", ".join(S.players),height=80)
+        if st.button("📝 명단 등록/수정",use_container_width=True):
             S.players=[clean(p) for p in raw.split(",") if p.strip()]
             S.attendance={p:S.attendance.get(p,False) for p in S.players}
-            st.success(f"✅ {len(S.players)}명 등록")
-        if S.players: st.markdown(f"**등록: {len(S.players)}명** — {', '.join(S.players)}")
+            st.success(f"✅ {len(S.players)}명 선수단 구성 완료")
+        if S.players: st.markdown(f"**현재 등록 선수: {len(S.players)}명** — {', '.join(S.players)}")
         st.divider()
-        st.markdown('<div class="sec-title">그룹 및 방식 설정</div>',unsafe_allow_html=True)
-        gcnt=st.number_input("그룹 수",1,6,1)
+        st.markdown('<div class="sec-title">2단계: 그룹 및 경기 방식 구성</div>',unsafe_allow_html=True)
+        gcnt=st.number_input("그룹 수 설정",1,6,1)
         gns=list("ABCDEF")[:gcnt]
         gcfg={}
         for gi,gn in enumerate(gns):
             hx=ghex(gi)
             st.markdown(f"<div style='background:{hx}18;border-left:5px solid {hx};border-radius:8px;"
-                        f"padding:6px 13px;margin:7px 0;font-weight:800;color:{hx}'>{GLBL[gi%len(GLBL)]} 그룹 {gn}</div>",
+                        f"padding:6px 13px;margin:7px 0;font-weight:800;color:{hx}'>{GLBL[gi%len(GLBL)]} 그룹 {gn} 설정</div>",
                         unsafe_allow_html=True)
             cc=st.columns(3)
             dfsz=max(2,len(S.players)//gcnt) if S.players else 4
-            with cc[0]: sz=st.number_input("인원",2,30,dfsz,key=f"sz{gn}")
-            with cc[1]: md=st.selectbox("방식",["KDK","고정페어","단식"],key=f"md{gn}")
-            with cc[2]: gc=st.selectbox("1인 게임수",[3,4,5,6],index=1,key=f"gc{gn}")
+            with cc[0]: sz=st.number_input("참가인원",2,30,dfsz,key=f"sz{gn}")
+            with cc[1]: md=st.selectbox("진행방식",["KDK","고정페어","단식"],key=f"md{gn}")
+            with cc[2]: gc=st.selectbox("개인별 게임수",[3,4,5,6],index=1,key=f"gc{gn}")
             gcfg[gn]=(sz,md,gc)
         tsz=sum(c[0] for c in gcfg.values())
         if S.players:
             d=len(S.players)-tsz
-            (st.success if d==0 else st.warning)(f"{'✅' if d==0 else '⚠️'} 참가자 {len(S.players)}명 / 배정 {tsz}명{f' (차이 {d:+d})' if d else ''}")
-        if st.button("🎲 대진 생성",use_container_width=True,type="primary"):
+            (st.success if d==0 else st.warning)(f"{'✅' if d==0 else '⚠️'} 전체 명단 {len(S.players)}명 / 그룹 배정 {tsz}명{f' (차이 {d:+d}명)' if d else ''}")
+        if st.button("🎲 대진표 자동 생성 시작",use_container_width=True,type="primary"):
             pl=S.players[:]
-            if len(pl)<tsz: st.error(f"인원 부족: {len(pl)}명 < {tsz}명")
+            if len(pl)<tsz: st.error(f"배정 인원이 명단보다 많습니다. 인원 설정을 확인하세요.")
             else:
                 rdf=load_rank(); rm=dict(zip(rdf["이름"],rdf["현재포인트"]))
                 pl.sort(key=lambda x:rm.get(x,0),reverse=True)
@@ -487,12 +537,12 @@ elif menu=="admin":
                     gp=pl[curr:curr+sz]; S.groups[gn]=gp; S.modes[gn]=md; S.game_counts[gn]=gc
                     if md=="KDK":
                         h=make_kdk_hanul(gp,gc)
-                        if h: S.schedule[gn]=h; st.info(f"그룹 {gn}: 한울KDK ({len(gp)}명×{gc}게임)")
+                        if h: S.schedule[gn]=h; st.info(f"그룹 {gn}: 한울KDK 방식 생성됨")
                         else:
                             sh=random.sample(gp,len(gp))
                             pairs=[sh[i:i+2] for i in range(0,len(sh)-1,2)]
                             if len(sh)%2==1: pairs.append([sh[-1]])
-                            S.schedule[gn]=make_rr(pairs); st.warning(f"그룹 {gn}: 한울 없음→랜덤페어 리그")
+                            S.schedule[gn]=make_rr(pairs); st.warning(f"그룹 {gn}: 한울DB 없음 → 랜덤페어 리그전 생성")
                     elif md=="고정페어":
                         n=len(gp); pairs=[[gp[i],gp[n-1-i]] for i in range(n//2)]
                         if n%2==1: pairs.append([gp[n//2]])
@@ -500,12 +550,12 @@ elif menu=="admin":
                     else:
                         S.schedule[gn]=make_rr([[p] for p in gp])
                     curr+=sz
-                st.success("✅ 대진 생성 완료! '대진표' 메뉴에서 확인하세요."); st.rerun()
+                st.success("✅ 대진 생성이 완료되었습니다! 왼쪽 메뉴의 '대진표'에서 확인하세요."); st.rerun()
 
     # ── 탭4: 점수 입력 (관리자 전용) ─────────────────────────
     with tabs[3]:
-        st.markdown('<div class="sec-title">점수 입력 (관리자 전용)</div>',unsafe_allow_html=True)
-        if not S.schedule: st.warning("대진을 먼저 생성하세요.")
+        st.markdown('<div class="sec-title">전적 기록실</div>',unsafe_allow_html=True)
+        if not S.schedule: st.warning("대진표를 먼저 생성해야 점수 입력이 가능합니다.")
         else:
             gnames=list(S.schedule.keys())
             stabs=st.tabs([f"{GLBL[i%len(GLBL)]} 그룹 {g}" for i,g in enumerate(gnames)])
@@ -527,16 +577,16 @@ elif menu=="admin":
                                 sc1,sc2=st.columns(2)
                                 with sc1: s1=st.number_input(n1,0,50,es1,key=f"{key}s1")
                                 with sc2: s2=st.number_input(n2,0,50,es2,key=f"{key}s2")
-                                if st.button("💾 저장",key=f"{key}btn",use_container_width=True):
+                                if st.button("💾 점수 저장",key=f"{key}btn",use_container_width=True):
                                     S.scores[key]={"group":g,"t1":t1,"t2":t2,"s1":s1,"s2":s2}
                                     r=(f"🏆 {n1} 승" if s1>s2 else(f"🏆 {n2} 승" if s2>s1 else"🤝 무승부"))
                                     st.success(f"{n1} {s1}:{s2} {n2} — {r}"); st.rerun()
 
     # ── 탭5: 결과 반영 ────────────────────────────────────────
     with tabs[4]:
-        st.markdown('<div class="sec-title">경기 결과 → 랭킹 반영</div>',unsafe_allow_html=True)
-        st.caption("1위 +7점 | 2위 +5점 | 3위 +3점 | 참가 +1점")
-        if not S.scores: st.warning("입력된 점수가 없습니다.")
+        st.markdown('<div class="sec-title">최종 결과 확정 및 랭킹 포인트 반영</div>',unsafe_allow_html=True)
+        st.caption("공식 포인트 기준: 1위(+7) | 2위(+5) | 3위(+3) | 기타 참가(+1)")
+        if not S.scores: st.warning("입력된 경기 결과가 없습니다.")
         else:
             rdf=load_rank(); earn={}
             for p in S.players: earn[p]=ATTEND_PT
@@ -566,11 +616,11 @@ elif menu=="admin":
                                           "그룹순위":["🥇","🥈","🥉"][ri2] if ri2<3 else ri2+1,
                                           "이름":p,"획득포인트":earn[p]})
             if prev_rows:
-                st.markdown("**📋 포인트 획득 미리보기**")
+                st.markdown("**📋 반영될 포인트 미리보기**")
                 st.dataframe(pd.DataFrame(prev_rows),use_container_width=True,hide_index=True)
             c1,c2=st.columns(2)
             with c1:
-                if st.button("🏆 랭킹 반영",use_container_width=True,type="primary"):
+                if st.button("🏆 최종 랭킹 반영",use_container_width=True,type="primary"):
                     rdf["이전포인트"]=rdf["현재포인트"]
                     for p,pt in earn.items():
                         if p in rdf["이름"].values: rdf.loc[rdf["이름"]==p,"현재포인트"]+=pt
@@ -581,12 +631,12 @@ elif menu=="admin":
                                          "이름":r["이름"],"그룹순위":r["그룹순위"],"획득포인트":r["획득포인트"]} for r in prev_rows])
                     save_hist(pd.concat([hdf,new_h],ignore_index=True))
                     tdf=load_tour(); tdf.loc[tdf["대회명"]==S.t_name,"상태"]="완료"; save_tour(tdf)
-                    st.success("✅ 랭킹 반영 완료!"); st.rerun()
+                    st.success("✅ 포인트 반영 및 기록 저장이 완료되었습니다!"); st.rerun()
             with c2:
-                if st.button("🗑 점수 초기화",use_container_width=True):
-                    S.scores={}; st.success("✅ 점수 초기화"); st.rerun()
+                if st.button("🗑 경기 기록만 초기화",use_container_width=True):
+                    S.scores={}; st.success("✅ 경기 기록이 초기화되었습니다."); st.rerun()
             st.divider()
-            st.markdown('<div class="sec-title">📜 지난 대회 히스토리</div>',unsafe_allow_html=True)
+            st.markdown('<div class="sec-title">📜 역대 대회 히스토리</div>',unsafe_allow_html=True)
             hdf=load_hist()
             if not hdf.empty: st.dataframe(hdf.sort_values("날짜",ascending=False).reset_index(drop=True),use_container_width=True,hide_index=True)
-            else: st.info("히스토리 없음")
+            else: st.info("아직 저장된 히스토리가 없습니다.")
