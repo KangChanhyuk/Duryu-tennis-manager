@@ -42,6 +42,7 @@ def generate_kdk_matches(player_names, games_per_person):
     if n < 4: return []
     p = [None] + player_names
     matches = []
+    # KDK 공식 규격 (4, 5, 8인 대응)
     if games_per_person == 3:
         if n == 4: matches = [(1,4,2,3), (1,3,2,4), (1,2,3,4)]
         elif n == 8: matches = [(1,2,3,4), (5,6,7,8), (1,8,2,7), (3,6,4,5), (1,4,5,8), (2,3,6,7)]
@@ -53,10 +54,9 @@ def generate_kdk_matches(player_names, games_per_person):
 # --- 4. 세션 상태 관리 ---
 if 'admin_mode' not in st.session_state: st.session_state.admin_mode = False
 if 'tour_name' not in st.session_state: st.session_state.tour_name = "두류 테니스 대회"
-if 'groups_config' not in st.session_state: 
-    st.session_state.groups_config = []
+if 'groups_config' not in st.session_state: st.session_state.groups_config = []
 
-# --- 5. 메뉴 구성 ---
+# --- 5. 메뉴 구성 (유지) ---
 menu = st.sidebar.radio("메뉴 이동", ["두류 랭킹", "대진 및 경기 현황", "경기 결과 및 점수", "아카이브", "관리자 페이지"])
 
 # [1. 두류 랭킹]
@@ -64,15 +64,12 @@ if menu == "두류 랭킹":
     st.markdown("<div class='main-header'>🏆 두류 랭킹 시스템</div>", unsafe_allow_html=True)
     df = load_data()
     st.dataframe(df, use_container_width=True, hide_index=True)
-    output = BytesIO()
-    df.to_excel(output, index=False)
-    st.download_button("📥 현재 랭킹 엑셀 다운로드", output.getvalue(), "ranking.xlsx")
 
 # [2. 대진 및 경기 현황]
 elif menu == "대진 및 경기 현황":
     st.markdown(f"<div class='main-header'>📅 {st.session_state.tour_name}</div>", unsafe_allow_html=True)
     if not st.session_state.groups_config:
-        st.warning("관리자 페이지에서 대진표를 먼저 생성해주세요.")
+        st.warning("관리자 페이지에서 대진표를 생성해주세요.")
     else:
         tabs = st.tabs([g['name'] for g in st.session_state.groups_config])
         for i, tab in enumerate(tabs):
@@ -102,50 +99,60 @@ elif menu == "관리자 페이지":
         st.session_state.admin_mode = True
         df = load_data()
         
-        st.subheader("🏁 대회 기본 설정")
+        # 대회명 및 데이터 관리
         st.session_state.tour_name = st.text_input("대회 이름", st.session_state.tour_name)
-        
-        st.subheader("📥 데이터 업데이트")
         up_file = st.file_uploader("랭킹 엑셀 업로드", type=['xlsx'])
         if up_file:
-            new_df = pd.read_excel(up_file)
-            new_df.to_csv(DB_FILE, index=False)
-            st.success("엑셀 반영 완료! 새로고침 하세요.")
+            pd.read_excel(up_file).to_csv(DB_FILE, index=False)
             st.rerun()
 
-        st.subheader("👥 참여자 명단 관리")
+        # 명단 관리
         current_names = df['이름'].tolist()
-        text_names = st.text_area("회원 명단 (랭킹순 쉼표 구분)", ", ".join(current_names))
-        
+        text_names = st.text_area("회원 명단 (쉼표 구분)", ", ".join(current_names))
+        if st.button("명단 수정 반영"):
+            pd.DataFrame({"이름": [n.strip() for n in text_names.split(",") if n.strip()]}).to_csv(DB_FILE, index=False)
+            st.rerun()
+
         st.write("✅ 오늘 대회 참가자 선택")
         cols = st.columns(4)
         active_p = [n for i, n in enumerate(current_names) if cols[i%4].checkbox(n, value=True, key=f"chk_{n}")]
 
         st.divider()
-        st.subheader("📝 그룹별 자동 배정 설정")
+        st.subheader("📝 그룹별 인원수 개별 설정")
         g_count = st.number_input("그룹 수", 1, 10, 2)
-        p_per_g = st.number_input("그룹당 인원수", 4, 20, 8)
         
-        if st.button("🎲 랭킹순 자동 배정 및 대진 확정"):
-            # 랭킹순 배정 로직
+        group_settings = []
+        last_idx = 0
+        for i in range(int(g_count)):
+            col1, col2 = st.columns([2, 1])
+            g_name = col1.text_input(f"그룹 {i+1} 이름", f"{chr(65+i)}그룹", key=f"gn_{i}")
+            g_num = col2.number_input(f"인원수", 4, 30, 8, key=f"gnnum_{i}")
+            
+            # 랭킹순 자동 슬라이싱
+            g_players = active_p[last_idx : last_idx + int(g_num)]
+            group_settings.append({"name": g_name, "num": g_num, "players": g_players})
+            last_idx += int(g_num)
+            
+            if g_players:
+                st.caption(f"└ 배정 명단: {', '.join(g_players)}")
+            else:
+                st.caption("└ 배정할 인원이 부족합니다.")
+
+        if st.button("🎲 설정된 인원대로 대진 확정"):
             new_configs = []
-            for i in range(int(g_count)):
-                start_idx = i * int(p_per_g)
-                end_idx = start_idx + int(p_per_g)
-                group_players = active_p[start_idx:end_idx] # 체크된 인원 중 랭킹순 추출
-                
-                if group_players:
+            for gs in group_settings:
+                if gs['players']:
                     new_configs.append({
-                        "name": f"{chr(65+i)}그룹",
+                        "name": gs['name'],
                         "type": "KDK",
                         "games": 4,
-                        "players": group_players
+                        "players": gs['players']
                     })
-            
             st.session_state.groups_config = new_configs
-            st.success(f"{len(new_configs)}개 그룹에 랭킹순 배정이 완료되었습니다!")
+            st.success("그룹별 인원 배정이 완료되었습니다!")
             st.rerun()
 
+# 나머지 메뉴 (결과, 아카이브) 레이아웃만 유지
 elif menu == "경기 결과 및 점수":
     st.markdown("<div class='main-header'>🏁 경기 결과</div>", unsafe_allow_html=True)
 elif menu == "아카이브":
