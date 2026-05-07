@@ -348,10 +348,10 @@ def get_grade_kdk(rank):
         return "참가"
 
 # ══════════════════════════════════════════════════════════════
-# KDK 대진 생성 함수
+# 대진 생성 함수
 # ══════════════════════════════════════════════════════════════
 def make_kdk(players, games_per_person):
-    """KDK 대진 생성 - 개인 단식"""
+    """KDK 대진 생성 - 개인 단식, 매 경기 파트너 변경"""
     n = len(players)
     
     if games_per_person == 3:
@@ -365,9 +365,23 @@ def make_kdk(players, games_per_person):
     shuffled = random.sample(players, n)
     
     matches = []
+    # KDK는 더블즈이지만 개인 단식으로 변환
     for a, b, c, d in bp:
+        # 매 경기 파트너가 변경됨
         matches.append({
             "t1": [shuffled[a-1]],
+            "t2": [shuffled[c-1]],
+            "s1": 0,
+            "s2": 0
+        })
+        matches.append({
+            "t1": [shuffled[a-1]],
+            "t2": [shuffled[d-1]],
+            "s1": 0,
+            "s2": 0
+        })
+        matches.append({
+            "t1": [shuffled[b-1]],
             "t2": [shuffled[c-1]],
             "s1": 0,
             "s2": 0
@@ -382,6 +396,7 @@ def make_kdk(players, games_per_person):
     return matches
 
 def make_fixed(players):
+    """고정페어 대진 생성 - 페어 고정, 페어 단위로 경기"""
     n = len(players)
     pairs = [(players[i], players[n-1-i]) for i in range(n//2)]
     ms = []
@@ -392,6 +407,7 @@ def make_fixed(players):
     return ms
 
 def make_singles(players):
+    """단식 대진 생성"""
     pl = players[:]
     random.shuffle(pl)
     ms = [(pl[i], pl[j]) for i in range(len(pl)) for j in range(i+1, len(pl))]
@@ -489,17 +505,19 @@ elif M == "schedule":
             mode = ginfo["mode"]
             cls = GCLS[ti % len(GCLS)]
             
+            is_fixed = (mode == "고정페어")
             is_kdk = (mode == "KDK")
             is_singles = (mode == "단식")
-            is_fixed = (mode == "고정페어")
             
             # 모드에 따라 통계 계산 방식 선택
             if is_fixed:
                 stats = group_stats_fixed(matches)
                 items = list(stats.keys())  # 팀 tuples
+                display_name = "팀"
             else:
                 stats = group_stats_kdk(matches)
                 items = list(stats.keys())  # 개인 이름
+                display_name = "선수"
             
             col_left, col_right = st.columns([3, 2], gap="medium")
             
@@ -532,7 +550,7 @@ elif M == "schedule":
                         html_table += f'<th>{col}</th>'
                     html_table += '</tr></thead><tbody>'
                     for idx, row in mdf.iterrows():
-                        html_table += f' hilab<td><strong>{idx}</strong></td>'
+                        html_table += f'<tr><td><strong>{idx}</strong></td>'
                         for col in mdf.columns:
                             val = row[col]
                             if val == '■':
@@ -546,7 +564,7 @@ elif M == "schedule":
                     st.info("경기 데이터가 없습니다.")
             
             with col_right:
-                st.markdown("**🏅 현재 순위**")
+                st.markdown(f"**🏅 현재 순위 ({display_name} 단위)**")
                 if items:
                     # 승-득실 기준으로 정렬
                     ranked = sorted(items, key=lambda x: (-stats[x]["승"], -stats[x]["득실"]))
@@ -582,7 +600,7 @@ elif M == "schedule":
             
             st.divider()
             
-            st.markdown("**🎾 경기 입력**")
+            st.markdown(f"**🎾 경기 입력 ({display_name} 단위)**")
             
             name_size_class = "team-box-small" if not is_fixed and len(items) > 6 else ""
             
@@ -650,10 +668,12 @@ elif M == "result":
             stats = group_stats_fixed(matches)
             items = list(stats.keys())
             ranked = sorted(items, key=lambda t: (-stats[t]["승"], -stats[t]["득실"]))
+            display_name = "팀"
         else:
             stats = group_stats_kdk(matches)
             items = list(stats.keys())
             ranked = sorted(items, key=lambda p: (-stats[p]["승"], -stats[p]["득실"]))
+            display_name = "선수"
         
         st.markdown(f'<div class="sec">{g} 그룹 ({mode})</div>', unsafe_allow_html=True)
         
@@ -696,7 +716,7 @@ elif M == "result":
             html_table += '</tbody></table>'
             st.markdown(html_table, unsafe_allow_html=True)
         
-        st.markdown("**🏆 최종 순위**")
+        st.markdown(f"**🏆 최종 순위 ({display_name} 단위)**")
         rows = []
         
         for i, item in enumerate(ranked):
@@ -776,10 +796,12 @@ elif M == "archive":
             stats = group_stats_fixed(matches)
             items = list(stats.keys())
             ranked = sorted(items, key=lambda t: (-stats[t]["승"], -stats[t]["득실"]))
+            display_name = "팀"
         else:
             stats = group_stats_kdk(matches)
             items = list(stats.keys())
             ranked = sorted(items, key=lambda p: (-stats[p]["승"], -stats[p]["득실"]))
+            display_name = "선수"
         
         st.markdown(f'<div class="sec">{g} 그룹 ({mode})</div>', unsafe_allow_html=True)
         
@@ -821,6 +843,7 @@ elif M == "archive":
             html_table += '</tbody></table>'
             st.markdown(html_table, unsafe_allow_html=True)
         
+        st.markdown(f"**🏆 최종 순위 ({display_name} 단위)**")
         rows = []
         for i, item in enumerate(ranked):
             pt = rank_pts(i+1, mode)
@@ -869,7 +892,7 @@ elif M == "archive":
             st.dataframe(pd.DataFrame(mrows), use_container_width=True, hide_index=True)
 
 # ══════════════════════════════════════════════════════════════
-# 5. ⚙️ 관리자 (이전과 동일 - 생략)
+# 5. ⚙️ 관리자 (이전과 동일)
 # ══════════════════════════════════════════════════════════════
 elif M == "admin":
     st.markdown("<div class='main-hdr'>⚙️ 관리자 센터</div>", unsafe_allow_html=True)
