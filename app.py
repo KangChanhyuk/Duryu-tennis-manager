@@ -205,7 +205,7 @@ GHEX = ["#66BB6A","#42A5F5","#FFA726","#AB47BC","#EF5350","#26A69A"]
 GLBL = ["🟢","🔵","🟠","🟣","🔴","🩵"]
 
 # ══════════════════════════════════════════════════════════════
-# KDK 대진표 (1인 3게임)
+# KDK 대진표 (1인 3게임) - 페어 단위
 # ══════════════════════════════════════════════════════════════
 KDK_3G = {
     4: [(1,4,2,3), (1,3,2,4), (1,2,3,4)],
@@ -215,7 +215,7 @@ KDK_3G = {
 }
 
 # ══════════════════════════════════════════════════════════════
-# KDK 대진표 (1인 4게임)
+# KDK 대진표 (1인 4게임) - 페어 단위
 # ══════════════════════════════════════════════════════════════
 KDK_4G = {
     5: [(1,2,3,4), (1,3,2,5), (1,4,3,5), (1,5,2,4), (2,3,4,5)],
@@ -300,27 +300,33 @@ def group_stats_fixed(matches):
     return stats
 
 def group_stats_kdk(matches):
-    """KDK/단식 통계 계산 (개인 단위)"""
+    """KDK 통계 계산 (개인 단위) - 페어로 경기하지만 승패는 개인에게 기록"""
     stats = {}
     for m in matches:
-        p1 = m["t1"][0] if len(m["t1"]) > 0 else ""
-        p2 = m["t2"][0] if len(m["t2"]) > 0 else ""
+        players1 = m["t1"]  # 페어 (2명)
+        players2 = m["t2"]  # 페어 (2명)
         
-        if p1 not in stats:
-            stats[p1] = {"승": 0, "패": 0, "득실": 0}
-        if p2 not in stats:
-            stats[p2] = {"승": 0, "패": 0, "득실": 0}
+        for p in players1 + players2:
+            if p not in stats:
+                stats[p] = {"승": 0, "패": 0, "득실": 0}
         
         s1, s2 = int(m["s1"]), int(m["s2"])
-        if s1 > s2:
-            stats[p1]["승"] += 1
-            stats[p2]["패"] += 1
-        elif s2 > s1:
-            stats[p2]["승"] += 1
-            stats[p1]["패"] += 1
+        if s1 > s2:  # t1 승리
+            for p in players1:
+                stats[p]["승"] += 1
+            for p in players2:
+                stats[p]["패"] += 1
+        elif s2 > s1:  # t2 승리
+            for p in players2:
+                stats[p]["승"] += 1
+            for p in players1:
+                stats[p]["패"] += 1
         
-        stats[p1]["득실"] += (s1 - s2)
-        stats[p2]["득실"] += (s2 - s1)
+        # 득실 계산 (개인별로 동일하게 적용)
+        for p in players1:
+            stats[p]["득실"] += (s1 - s2)
+        for p in players2:
+            stats[p]["득실"] += (s2 - s1)
     return stats
 
 def rank_pts(rank, mode):
@@ -351,7 +357,7 @@ def get_grade_kdk(rank):
 # 대진 생성 함수
 # ══════════════════════════════════════════════════════════════
 def make_kdk(players, games_per_person):
-    """KDK 대진 생성 - 개인 단식, 매 경기 파트너 변경"""
+    """KDK 대진 생성 - 페어(2:2) 단위로 경기, 순위는 개인별"""
     n = len(players)
     
     if games_per_person == 3:
@@ -365,30 +371,11 @@ def make_kdk(players, games_per_person):
     shuffled = random.sample(players, n)
     
     matches = []
-    # KDK는 더블즈이지만 개인 단식으로 변환
     for a, b, c, d in bp:
-        # 매 경기 파트너가 변경됨
+        # a,b가 한 팀, c,d가 한 팀 (2:2 더블즈)
         matches.append({
-            "t1": [shuffled[a-1]],
-            "t2": [shuffled[c-1]],
-            "s1": 0,
-            "s2": 0
-        })
-        matches.append({
-            "t1": [shuffled[a-1]],
-            "t2": [shuffled[d-1]],
-            "s1": 0,
-            "s2": 0
-        })
-        matches.append({
-            "t1": [shuffled[b-1]],
-            "t2": [shuffled[c-1]],
-            "s1": 0,
-            "s2": 0
-        })
-        matches.append({
-            "t1": [shuffled[b-1]],
-            "t2": [shuffled[d-1]],
+            "t1": [shuffled[a-1], shuffled[b-1]],
+            "t2": [shuffled[c-1], shuffled[d-1]],
             "s1": 0,
             "s2": 0
         })
@@ -507,9 +494,8 @@ elif M == "schedule":
             
             is_fixed = (mode == "고정페어")
             is_kdk = (mode == "KDK")
-            is_singles = (mode == "단식")
             
-            # 모드에 따라 통계 계산 방식 선택
+            # 매트릭스용 라벨과 통계
             if is_fixed:
                 stats = group_stats_fixed(matches)
                 items = list(stats.keys())  # 팀 tuples
@@ -530,18 +516,27 @@ elif M == "schedule":
                     else:
                         lab = {p: p for p in items}
                     
+                    # KDK 매트릭스는 개인 vs 개인으로 표시 (더블즈 결과를 개인 매치로 변환)
                     mat = {lab[t]: {lab[o]: ("■" if t==o else "–") for o in items} for t in items}
                     for m in matches:
                         if is_fixed:
                             t1 = tuple(m["t1"])
                             t2 = tuple(m["t2"])
+                            s1, s2 = int(m["s1"]), int(m["s2"])
+                            if s1 > 0 or s2 > 0:
+                                mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
+                                mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
                         else:
-                            t1 = m["t1"][0]
-                            t2 = m["t2"][0]
-                        s1, s2 = int(m["s1"]), int(m["s2"])
-                        if s1 > 0 or s2 > 0:
-                            mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
-                            mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
+                            # KDK: 페어 간 경기 결과를 개인 매치로 표시하기 위해
+                            # 각 개인에게 동일한 점수 부여
+                            players1 = m["t1"]
+                            players2 = m["t2"]
+                            s1, s2 = int(m["s1"]), int(m["s2"])
+                            if s1 > 0 or s2 > 0:
+                                for p1 in players1:
+                                    for p2 in players2:
+                                        mat[p1][p2] = f"{s1}:{s2}"
+                                        mat[p2][p1] = f"{s2}:{s1}"
                     mdf = pd.DataFrame(mat).T
                     
                     html_table = '<table class="matrix-table">'
@@ -558,7 +553,7 @@ elif M == "schedule":
                             else:
                                 html_table += f'<td>{val}</td>'
                         html_table += '</tr>'
-                    html_table += '</tbody></table>'
+                    html_table += '</tbody><table>'
                     st.markdown(html_table, unsafe_allow_html=True)
                 else:
                     st.info("경기 데이터가 없습니다.")
@@ -572,7 +567,6 @@ elif M == "schedule":
                     rows = []
                     for i, item in enumerate(ranked):
                         if is_fixed:
-                            # 고정페어: 팀 단위
                             grade = ["우승","준우승","3위"][i] if i<3 else "참가"
                             rows.append({
                                 "순위": ["🥇","🥈","🥉"][i] if i<3 else i+1,
@@ -583,7 +577,7 @@ elif M == "schedule":
                                 "비고": grade
                             })
                         else:
-                            # KDK/단식: 개인 단위
+                            # KDK: 개인 단위 순위
                             grade = get_grade_kdk(i+1)
                             rows.append({
                                 "순위": ["🥇","🥈","🥉"][i] if i<3 else i+1,
@@ -600,7 +594,7 @@ elif M == "schedule":
             
             st.divider()
             
-            st.markdown(f"**🎾 경기 입력 ({display_name} 단위)**")
+            st.markdown(f"**🎾 경기 입력 (페어 단위)**")
             
             name_size_class = "team-box-small" if not is_fixed and len(items) > 6 else ""
             
@@ -610,8 +604,9 @@ elif M == "schedule":
                     t1 = " & ".join(m["t1"])
                     t2 = " & ".join(m["t2"])
                 else:
-                    t1 = m["t1"][0] if len(m["t1"]) > 0 else ""
-                    t2 = m["t2"][0] if len(m["t2"]) > 0 else ""
+                    # KDK: 페어 단위로 표시
+                    t1 = " & ".join(m["t1"])
+                    t2 = " & ".join(m["t2"])
                 
                 c1, c2, c3 = st.columns([4, 1, 4])
                 
@@ -689,13 +684,19 @@ elif M == "result":
                 if is_fixed:
                     t1 = tuple(m["t1"])
                     t2 = tuple(m["t2"])
+                    s1, s2 = int(m["s1"]), int(m["s2"])
+                    if s1 > 0 or s2 > 0:
+                        mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
+                        mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
                 else:
-                    t1 = m["t1"][0]
-                    t2 = m["t2"][0]
-                s1, s2 = int(m["s1"]), int(m["s2"])
-                if s1 > 0 or s2 > 0:
-                    mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
-                    mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
+                    players1 = m["t1"]
+                    players2 = m["t2"]
+                    s1, s2 = int(m["s1"]), int(m["s2"])
+                    if s1 > 0 or s2 > 0:
+                        for p1 in players1:
+                            for p2 in players2:
+                                mat[p1][p2] = f"{s1}:{s2}"
+                                mat[p2][p1] = f"{s2}:{s1}"
             mdf = pd.DataFrame(mat).T
             
             st.markdown("**📊 상세 경기 매트릭스**")
@@ -753,15 +754,15 @@ elif M == "result":
                     t1 = " & ".join(m["t1"])
                     t2 = " & ".join(m["t2"])
                 else:
-                    t1 = m["t1"][0] if len(m["t1"]) > 0 else ""
-                    t2 = m["t2"][0] if len(m["t2"]) > 0 else ""
+                    t1 = " & ".join(m["t1"])
+                    t2 = " & ".join(m["t2"])
                 s1, s2 = int(m["s1"]), int(m["s2"])
                 result = "🏆 " + t1 + " 승" if s1 > s2 else "🏆 " + t2 + " 승" if s2 > s1 else "🤝 무승부"
                 mrows.append({
-                    "참가자1": t1,
+                    "페어1": t1,
                     "점수1": s1,
                     "점수2": s2,
-                    "참가자2": t2,
+                    "페어2": t2,
                     "결과": result
                 })
             st.dataframe(pd.DataFrame(mrows), use_container_width=True, hide_index=True)
@@ -817,13 +818,19 @@ elif M == "archive":
                 if is_fixed:
                     t1 = tuple(m["t1"])
                     t2 = tuple(m["t2"])
+                    s1, s2 = int(m["s1"]), int(m["s2"])
+                    if s1 > 0 or s2 > 0:
+                        mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
+                        mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
                 else:
-                    t1 = m["t1"][0]
-                    t2 = m["t2"][0]
-                s1, s2 = int(m["s1"]), int(m["s2"])
-                if s1 > 0 or s2 > 0:
-                    mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
-                    mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
+                    players1 = m["t1"]
+                    players2 = m["t2"]
+                    s1, s2 = int(m["s1"]), int(m["s2"])
+                    if s1 > 0 or s2 > 0:
+                        for p1 in players1:
+                            for p2 in players2:
+                                mat[p1][p2] = f"{s1}:{s2}"
+                                mat[p2][p1] = f"{s2}:{s1}"
             mdf = pd.DataFrame(mat).T
             
             html_table = '<table class="matrix-table">'
@@ -836,7 +843,7 @@ elif M == "archive":
                 for col in mdf.columns:
                     val = row[col]
                     if val == '■':
-                        html_table += f'<td class="matrix-grey">{val}</td>'
+                        html_table += f'<td class="matrix-grey">{val}</tr>'
                     else:
                         html_table += f'<td>{val}</td>'
                 html_table += '</tr>'
@@ -878,21 +885,21 @@ elif M == "archive":
                     t1 = " & ".join(m["t1"])
                     t2 = " & ".join(m["t2"])
                 else:
-                    t1 = m["t1"][0] if len(m["t1"]) > 0 else ""
-                    t2 = m["t2"][0] if len(m["t2"]) > 0 else ""
+                    t1 = " & ".join(m["t1"])
+                    t2 = " & ".join(m["t2"])
                 s1, s2 = int(m["s1"]), int(m["s2"])
                 result = "🏆 " + t1 + " 승" if s1 > s2 else "🏆 " + t2 + " 승" if s2 > s1 else "🤝 무승부"
                 mrows.append({
-                    "참가자1": t1,
+                    "페어1": t1,
                     "점수1": s1,
                     "점수2": s2,
-                    "참가자2": t2,
+                    "페어2": t2,
                     "결과": result
                 })
             st.dataframe(pd.DataFrame(mrows), use_container_width=True, hide_index=True)
 
 # ══════════════════════════════════════════════════════════════
-# 5. ⚙️ 관리자 (이전과 동일)
+# 5. ⚙️ 관리자 (이전과 동일 - 간소화하여 표시)
 # ══════════════════════════════════════════════════════════════
 elif M == "admin":
     st.markdown("<div class='main-hdr'>⚙️ 관리자 센터</div>", unsafe_allow_html=True)
