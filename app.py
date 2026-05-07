@@ -10,10 +10,11 @@ from io import BytesIO
 st.set_page_config(page_title="두류 랭킹 관리 시스템", page_icon="🎾",
                    layout="wide", initial_sidebar_state="collapsed")
 
+# 강력한 가운데 정렬 CSS
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&display=swap');
-html, body, [class*="css"], button, input, select, textarea {
+* {
     font-family: 'Noto Sans KR', sans-serif !important;
 }
 .block-container { padding: 0 0.6rem 2rem !important; max-width: 100% !important; }
@@ -66,30 +67,27 @@ button[data-baseweb="tab"][aria-selected="true"] {
 }
 
 /* ================================================================
-   모든 테이블 가운데 정렬 - 가장 중요!
+   ★★★★★ 강력한 가운데 정렬 - 모든 테이블 요소에 적용 ★★★★★
    ================================================================ */
-.dataframe, 
-[data-testid="stDataFrame"], 
-[data-testid="stDataEditor"],
-div[data-testid="stDataFrame"] table, 
+div[data-testid="stDataFrame"] table,
 div[data-testid="stDataEditor"] table,
-.stDataFrame, 
-.stDataEditor,
+.stDataFrame table,
+.stDataEditor table,
 table.dataframe,
-div.stDataFrame table,
-div.stDataEditor table {
+.dataframe,
+[data-testid="stDataFrame"],
+[data-testid="stDataEditor"] {
     width: 100% !important;
 }
 
-.dataframe th, .dataframe td,
-[data-testid="stDataFrame"] th, [data-testid="stDataFrame"] td,
-[data-testid="stDataEditor"] th, [data-testid="stDataEditor"] td,
-.stTable th, .stTable td,
-table th, table td,
 div[data-testid="stDataFrame"] table th,
 div[data-testid="stDataFrame"] table td,
 div[data-testid="stDataEditor"] table th,
-div[data-testid="stDataEditor"] table td {
+div[data-testid="stDataEditor"] table td,
+.stDataFrame th, .stDataFrame td,
+.stDataEditor th, .stDataEditor td,
+table th, table td,
+.dataframe th, .dataframe td {
     text-align: center !important;
     vertical-align: middle !important;
 }
@@ -103,16 +101,15 @@ div[data-testid="stNumberInput"] input {
     font-weight: 700 !important;
 }
 
-/* 팀 도형 - 연한 초록/노랑 계열 */
+/* 팀 도형 */
 .team-box {
     border-radius:12px; padding:9px 13px; font-weight:800;
     font-size:clamp(.78rem, 2vw, 0.9rem); text-align:center;
     margin:3px 0; box-shadow:0 3px 8px rgba(0,0,0,.12); line-height:1.3;
 }
-/* KDK처럼 이름이 많을 때는 글자 크기 조정 */
 .team-box-small {
-    font-size: 0.78rem !important;
-    padding: 6px 10px !important;
+    font-size: 0.75rem !important;
+    padding: 5px 8px !important;
 }
 .tg{background:linear-gradient(135deg,#66BB6A,#43A047);color:#fff}
 .tb{background:linear-gradient(135deg,#42A5F5,#1E88E5);color:#fff}
@@ -177,6 +174,7 @@ div[data-testid="stNumberInput"] input {
     width: 100%;
     border-collapse: collapse;
     text-align: center;
+    margin: 0 auto;
 }
 .matrix-table th, .matrix-table td {
     padding: 8px;
@@ -193,11 +191,6 @@ div[data-testid="stNumberInput"] input {
 }
 hr {
     margin: 8px 0;
-}
-/* 데이터프레임 내부도 강제 가운데 정렬 */
-div[data-testid="stDataFrame"] div[data-testid="StyledDataFrameContainer"] table td,
-div[data-testid="stDataFrame"] div[data-testid="StyledDataFrameContainer"] table th {
-    text-align: center !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -315,6 +308,17 @@ def rank_pts(rank, mode):
             return 3
         else:
             return 1
+
+def get_grade_kdk(rank):
+    """KDK 등급 반환 (1-2위 우승, 3-4위 준우승, 5-6위 3위, 나머지 참가)"""
+    if rank <= 2:
+        return "우승"
+    elif rank <= 4:
+        return "준우승"
+    elif rank <= 6:
+        return "3위"
+    else:
+        return "참가"
 
 # ══════════════════════════════════════════════════════════════
 # KDK 대진 생성 함수
@@ -453,7 +457,6 @@ elif M == "schedule":
             stats = group_stats(matches)
             teams = list(stats.keys())
             
-            # KDK 모드일 때는 개인 순위표만 표시 (팀 아님)
             is_kdk_or_singles = (mode == "KDK" or mode == "단식")
 
             col_left, col_right = st.columns([3, 2], gap="medium")
@@ -471,7 +474,6 @@ elif M == "schedule":
                             mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
                     mdf = pd.DataFrame(mat).T
                     
-                    # HTML 테이블로 표시
                     html_table = '<table class="matrix-table">'
                     html_table += '<thead><tr><th></th>'
                     for col in mdf.columns:
@@ -494,26 +496,37 @@ elif M == "schedule":
             with col_right:
                 st.markdown("**🏅 현재 순위**")
                 if teams:
+                    ranked = sorted(teams, key=lambda t: (-stats[t]["승"], -stats[t]["득실"]))
+                    
                     if is_kdk_or_singles:
-                        # KDK/단식: 개인 순위표
-                        ranked = sorted(teams, key=lambda t: (-stats[t]["승"], -stats[t]["득실"]))
-                        rdf = pd.DataFrame([{
-                            "순위": ["🥇","🥈","🥉"][i] if i<3 else i+1,
-                            "선수": tname(list(t)),
-                            "승": stats[t]["승"],
-                            "패": stats[t]["패"],
-                            "득실": f'{stats[t]["득실"]:+d}'
-                        } for i, t in enumerate(ranked)])
+                        # KDK/단식: 개인 순위 + 비고에 등급 묶음 표시
+                        rows = []
+                        for i, t in enumerate(ranked):
+                            grade = get_grade_kdk(i+1)
+                            rows.append({
+                                "순위": ["🥇","🥈","🥉"][i] if i<3 else i+1,
+                                "선수": tname(list(t)),
+                                "승": stats[t]["승"],
+                                "패": stats[t]["패"],
+                                "득실": f'{stats[t]["득실"]:+d}',
+                                "비고": grade
+                            })
+                        rdf = pd.DataFrame(rows)
                     else:
-                        # 고정페어: 팀 순위표
-                        ranked = sorted(teams, key=lambda t: (-stats[t]["승"], -stats[t]["득실"]))
-                        rdf = pd.DataFrame([{
-                            "순위": ["🥇","🥈","🥉"][i] if i<3 else i+1,
-                            "팀": tname(list(t)),
-                            "승": stats[t]["승"],
-                            "패": stats[t]["패"],
-                            "득실": f'{stats[t]["득실"]:+d}'
-                        } for i, t in enumerate(ranked)])
+                        # 고정페어: 팀 순위
+                        rows = []
+                        for i, t in enumerate(ranked):
+                            grade = ["우승","준우승","3위"][i] if i<3 else "참가"
+                            rows.append({
+                                "순위": ["🥇","🥈","🥉"][i] if i<3 else i+1,
+                                "팀": tname(list(t)),
+                                "승": stats[t]["승"],
+                                "패": stats[t]["패"],
+                                "득실": f'{stats[t]["득실"]:+d}',
+                                "비고": grade
+                            })
+                        rdf = pd.DataFrame(rows)
+                    
                     st.dataframe(rdf, use_container_width=True, hide_index=True)
                 else:
                     st.info("순위 정보가 없습니다.")
@@ -522,7 +535,6 @@ elif M == "schedule":
             
             st.markdown("**🎾 경기 입력**")
             
-            # KDK 모드일 때는 이름이 많으므로 글자 크기 작게
             name_size_class = "team-box-small" if is_kdk_or_singles and len(teams) > 6 else ""
             
             changed = False
@@ -600,7 +612,7 @@ elif M == "result":
             html_table += '<thead><tr><th></th>'
             for col in mdf.columns:
                 html_table += f'<th>{col}</th>'
-            html_table += '</table></thead><tbody>'
+            html_table += '</tr></thead><tbody>'
             for idx, row in mdf.iterrows():
                 html_table += f'<tr><td><strong>{idx}</strong></td>'
                 for col in mdf.columns:
@@ -615,10 +627,11 @@ elif M == "result":
         
         st.markdown("**🏆 최종 순위**")
         rows = []
-        G = ["우승","우승","준우승","준우승","3위","3위"]
         is_kdk_or_singles = (mode == "KDK" or mode == "단식")
         
         for ri, t in enumerate(ranked):
+            pt = rank_pts(ri+1, mode)
+            
             if not is_kdk_or_singles:  # 고정페어
                 grade = ["우승","준우승","3위"][ri] if ri<3 else "참가"
                 rows.append({
@@ -627,19 +640,19 @@ elif M == "result":
                     "승": stats[t]["승"],
                     "패": stats[t]["패"],
                     "득실": f'{stats[t]["득실"]:+d}',
-                    "부과점": rank_pts(ri+1, mode),
+                    "부과점": pt,
                     "등급": grade
                 })
-            else:  # KDK/단식 - 개인 순위
-                grade = G[ri] if ri<len(G) else "참가"
+            else:  # KDK/단식 - 개인 순위 + 등급 묶음 (비고)
+                grade = get_grade_kdk(ri+1)
                 rows.append({
                     "순위": ri+1,
                     "선수": tname(list(t)),
                     "승": stats[t]["승"],
                     "패": stats[t]["패"],
                     "득실": f'{stats[t]["득실"]:+d}',
-                    "부과점": rank_pts(ri+1, mode),
-                    "등급": grade
+                    "부과점": pt,
+                    "비고": grade
                 })
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
         
@@ -674,7 +687,6 @@ elif M == "archive":
         st.info("대진 정보가 없습니다.")
         st.stop()
 
-    G = ["우승","우승","준우승","준우승","3위","3위"]
     for g, ginfo in tour["groups"].items():
         mode = ginfo["mode"]
         matches = ginfo["matches"]
@@ -714,25 +726,28 @@ elif M == "archive":
         is_kdk_or_singles = (mode == "KDK" or mode == "단식")
         rows = []
         for ri, t in enumerate(ranked):
+            pt = rank_pts(ri+1, mode)
             if not is_kdk_or_singles:
+                grade = ["우승","준우승","3위"][ri] if ri<3 else "참가"
                 rows.append({
                     "순위": ["🥇","🥈","🥉"][ri] if ri<3 else ri+1,
                     "팀/선수": tname(list(t)),
                     "승": stats[t]["승"],
                     "패": stats[t]["패"],
                     "득실": f'{stats[t]["득실"]:+d}',
-                    "부과점": rank_pts(ri+1, mode),
-                    "등급": (["우승","준우승","3위"][ri] if mode=="고정페어" and ri<3 else G[ri] if ri<len(G) else "참가")
+                    "부과점": pt,
+                    "등급": grade
                 })
             else:
+                grade = get_grade_kdk(ri+1)
                 rows.append({
                     "순위": ri+1,
-                    "팀/선수": tname(list(t)),
+                    "선수": tname(list(t)),
                     "승": stats[t]["승"],
                     "패": stats[t]["패"],
                     "득실": f'{stats[t]["득실"]:+d}',
-                    "부과점": rank_pts(ri+1, mode),
-                    "등급": G[ri] if ri<len(G) else "참가"
+                    "부과점": pt,
+                    "비고": grade
                 })
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
         
@@ -748,7 +763,7 @@ elif M == "archive":
             st.dataframe(pd.DataFrame(mrows), use_container_width=True, hide_index=True)
 
 # ══════════════════════════════════════════════════════════════
-# 5. ⚙️ 관리자 (이전 코드와 동일하므로 생략 - 필요시 포함)
+# 5. ⚙️ 관리자
 # ══════════════════════════════════════════════════════════════
 elif M == "admin":
     st.markdown("<div class='main-hdr'>⚙️ 관리자 센터</div>", unsafe_allow_html=True)
@@ -1071,7 +1086,6 @@ elif M == "admin":
 
         earn = {}
         prev_rows = []
-        GRADE = ["우승","우승","준우승","준우승","3위","3위"]
         for g, ginfo in tour3["groups"].items():
             mode = ginfo["mode"]
             matches = ginfo["matches"]
@@ -1082,7 +1096,7 @@ elif M == "admin":
                 if mode == "고정페어":
                     grade = ["우승","준우승","3위"][ri] if ri<3 else "참가"
                 else:
-                    grade = GRADE[ri] if ri < len(GRADE) else "참가"
+                    grade = get_grade_kdk(ri+1)
                 for p in list(t):
                     earn[p] = pt
                     prev_rows.append({
