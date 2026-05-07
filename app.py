@@ -18,7 +18,7 @@ html, body, [class*="css"], button, input, select, textarea {
 }
 .block-container { padding: 0 0.6rem 2rem !important; max-width: 100% !important; }
 
-/* ── 네비게이션 바 ── */
+/* 네비게이션 바 */
 section.main [data-testid="stHorizontalBlock"]:first-of-type .stButton > button {
     background: transparent !important;
     color: rgba(255,255,255,0.72) !important;
@@ -43,7 +43,7 @@ section.main [data-testid="stHorizontalBlock"]:first-of-type .stButton > button[
     border-bottom: 4px solid #A5D6A7 !important;
 }
 
-/* ── 공통 헤더 ── */
+/* 공통 헤더 */
 .main-hdr {
     background: linear-gradient(135deg,#1D5B2E,#388E3C);
     color:#fff; padding:1rem 1.4rem; border-radius:14px;
@@ -56,7 +56,7 @@ section.main [data-testid="stHorizontalBlock"]:first-of-type .stButton > button[
     border-left:5px solid #66BB6A; padding-left:10px; margin:14px 0 8px;
 }
 
-/* ── 탭 ── */
+/* 탭 */
 button[data-baseweb="tab"] {
     font-size:0.95rem!important; font-weight:700!important;
     padding:10px 16px!important; border-radius:8px 8px 0 0!important;
@@ -65,14 +65,15 @@ button[data-baseweb="tab"][aria-selected="true"] {
     background:linear-gradient(135deg,#1D5B2E,#388E3C)!important; color:#fff!important;
 }
 
-/* ── 테이블 가운데 정렬 ── */
+/* 테이블 가운데 정렬 */
 th, td, [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th,
-[data-testid="stDataEditor"] td, [data-testid="stDataEditor"] th {
+[data-testid="stDataEditor"] td, [data-testid="stDataEditor"] th,
+.dataframe th, .dataframe td {
     text-align: center !important;
     vertical-align: middle !important;
 }
 
-/* ── 팀 도형 ── */
+/* 팀 도형 */
 .team-box {
     border-radius:12px; padding:9px 13px; font-weight:800;
     font-size:clamp(.82rem,2.4vw,1rem); text-align:center;
@@ -87,15 +88,60 @@ th, td, [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th,
 
 .vs-circle {
     background:#E53935; color:#fff; border-radius:50%;
-    width:34px; height:34px; display:flex; align-items:center;
-    justify-content:center; font-weight:900; font-size:.8rem;
-    margin:4px auto; box-shadow:0 2px 8px rgba(229,57,53,.4);
+    width:40px; height:40px; display:flex; align-items:center;
+    justify-content:center; font-weight:900; font-size:.9rem;
+    margin:0 auto; box-shadow:0 2px 8px rgba(229,57,53,.4);
 }
-.rnd-hdr {
-    background:linear-gradient(90deg,#1D5B2E,#43A047); color:#fff;
-    border-radius:8px; padding:5px 14px; font-weight:800;
-    text-align:center; margin:12px 0 6px;
+
+/* 라운드 카드 */
+.round-card {
+    background: linear-gradient(135deg, #ffffff, #f8f9fa);
+    border: 1px solid #e0e0e0;
+    border-radius: 16px;
+    padding: 16px;
+    margin: 12px 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    transition: transform 0.2s;
 }
+.round-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+}
+.round-title {
+    background: linear-gradient(90deg,#1D5B2E,#43A047);
+    color: white;
+    border-radius: 12px;
+    padding: 8px 16px;
+    font-weight: 800;
+    text-align: center;
+    margin-bottom: 16px;
+    font-size: 1rem;
+}
+.match-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 12px 0;
+}
+.team-cell {
+    flex: 2;
+    text-align: center;
+}
+.score-cell {
+    flex: 0.5;
+    text-align: center;
+    font-weight: 900;
+    font-size: 1.3rem;
+    background: #f5f5f5;
+    border-radius: 12px;
+    padding: 6px;
+}
+.vs-cell {
+    flex: 0.3;
+    text-align: center;
+}
+
 .tour-card {
     background:#F9FBF9; border:1.5px solid #C8E6C9; border-radius:12px;
     padding:10px 14px; margin:6px 0;
@@ -114,6 +160,12 @@ th, td, [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th,
     font-size:1rem; font-weight:900; color:#1D5B2E;
     border-bottom:2px solid #A5D6A7; padding-bottom:8px; margin-bottom:14px;
     text-align:center;
+}
+.matrix-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 12px;
+    border: 1px solid #C8E6C9;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -300,7 +352,7 @@ if M == "ranking":
             use_container_width=True)
 
 # ══════════════════════════════════════════════════════════════
-# 2. 📅 대진 및 경기 현황 (수정된 매트릭스 코드)
+# 2. 📅 대진 및 경기 현황 (개선된 UI)
 # ══════════════════════════════════════════════════════════════
 elif M == "schedule":
     tours  = load_tours()
@@ -327,58 +379,104 @@ elif M == "schedule":
             stats   = group_stats(matches)
             teams   = list(stats.keys())
 
-            mc,rc = st.columns([3,2])
-            with mc:
+            # 상단: 매트릭스 + 순위 테이블 (2컬럼)
+            col_left, col_right = st.columns([3, 2], gap="medium")
+            
+            with col_left:
                 st.markdown("**📋 상대별 전적 매트릭스**")
-                lab = {t:tname(list(t)) for t in teams}
-                mat = {lab[t]:{lab[o]:("■" if t==o else "–") for o in teams} for t in teams}
-                for m in matches:
-                    t1,t2=tuple(m["t1"]),tuple(m["t2"]); s1,s2=int(m["s1"]),int(m["s2"])
-                    if s1>0 or s2>0:
-                        mat[lab[t1]][lab[t2]]=f"{s1}:{s2}"
-                        mat[lab[t2]][lab[t1]]=f"{s2}:{s1}"
-                mdf = pd.DataFrame(mat).T
-                
-                # ★ 수정된 스타일 함수 (오류 해결)
-                def style_cells(val):
-                    if val == '■':
-                        return 'background-color: #d0d0d0; color: #d0d0d0; text-align: center;'
-                    return 'text-align: center;'
-                
-                styled_mdf = mdf.style.applymap(style_cells)
-                st.dataframe(styled_mdf, use_container_width=True)
-                
-            with rc:
+                if teams:
+                    lab = {t: tname(list(t)) for t in teams}
+                    mat = {lab[t]: {lab[o]: ("■" if t==o else "–") for o in teams} for t in teams}
+                    for m in matches:
+                        t1, t2 = tuple(m["t1"]), tuple(m["t2"])
+                        s1, s2 = int(m["s1"]), int(m["s2"])
+                        if s1 > 0 or s2 > 0:
+                            mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
+                            mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
+                    mdf = pd.DataFrame(mat).T
+                    # 가운데 정렬 스타일 적용 (applymap 대신 HTML로)
+                    st.markdown('<div class="matrix-card">', unsafe_allow_html=True)
+                    st.dataframe(mdf, use_container_width=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                else:
+                    st.info("경기 데이터가 없습니다.")
+            
+            with col_right:
                 st.markdown("**🏅 현재 순위**")
-                ranked = sorted(teams,key=lambda t:(-stats[t]["승"],-stats[t]["득실"]))
-                rdf = pd.DataFrame([{"순위":["🥇","🥈","🥉"][i] if i<3 else i+1,
-                    "팀/선수":tname(list(t)),"승":stats[t]["승"],"패":stats[t]["패"],
-                    "득실":f'{stats[t]["득실"]:+d}'} for i,t in enumerate(ranked)])
-                st.dataframe(rdf, use_container_width=True, hide_index=True)
-
+                if teams:
+                    ranked = sorted(teams, key=lambda t: (-stats[t]["승"], -stats[t]["득실"]))
+                    rdf = pd.DataFrame([{
+                        "순위": ["🥇","🥈","🥉"][i] if i<3 else i+1,
+                        "팀/선수": tname(list(t)),
+                        "승": stats[t]["승"],
+                        "패": stats[t]["패"],
+                        "득실": f'{stats[t]["득실"]:+d}'
+                    } for i, t in enumerate(ranked)])
+                    st.dataframe(rdf, use_container_width=True, hide_index=True)
+                else:
+                    st.info("순위 정보가 없습니다.")
+            
             st.divider()
+            
+            # 하단: 라운드별 카드 형태로 경기 표시
+            st.markdown("**🎾 경기 입력 (카드 형태)**")
+            
             changed = False
-            for mi,m in enumerate(matches):
-                t1,t2=m["t1"],m["t2"]; n1,n2=tname(t1),tname(t2)
-                st.markdown(f'<div class="rnd-hdr">경기 {mi+1}</div>', unsafe_allow_html=True)
-                ca,cb,cc = st.columns([4,1,4])
-                with ca:
-                    st.markdown(f'<div class="team-box {cls}">{n1}</div>', unsafe_allow_html=True)
-                    s1=st.number_input(n1,0,50,int(m["s1"]),key=f"{tid}{g}{mi}s1",label_visibility="collapsed")
-                with cb:
-                    st.markdown('<div class="vs-circle">VS</div>', unsafe_allow_html=True)
-                with cc:
-                    st.markdown(f'<div class="team-box {cls}">{n2}</div>', unsafe_allow_html=True)
-                    s2=st.number_input(n2,0,50,int(m["s2"]),key=f"{tid}{g}{mi}s2",label_visibility="collapsed")
-                if s1!=int(m["s1"]) or s2!=int(m["s2"]):
-                    tour["groups"][g]["matches"][mi]["s1"]=s1
-                    tour["groups"][g]["matches"][mi]["s2"]=s2
-                    changed=True
+            # 경기를 라운드별로 그룹화 (고정페어/KDK 방식에 따라)
+            round_size = max(1, len(matches) // 3) if len(matches) > 6 else len(matches)
+            
+            for round_idx in range(0, len(matches), round_size):
+                round_matches = matches[round_idx:round_idx+round_size]
+                with st.container():
+                    st.markdown(f'<div class="round-title">📍 ROUND {round_idx//round_size + 1}</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="round-card">', unsafe_allow_html=True)
+                    
+                    for mi, m in enumerate(round_matches):
+                        actual_idx = round_idx + mi
+                        t1, t2 = m["t1"], m["t2"]
+                        n1, n2 = tname(t1), tname(t2)
+                        
+                        # 3컬럼 레이아웃 (팀1 - VS - 팀2)
+                        c1, c2, c3 = st.columns([4, 1, 4])
+                        
+                        with c1:
+                            st.markdown(f'<div class="team-box {cls}" style="font-size:1rem;">{n1}</div>', unsafe_allow_html=True)
+                            s1 = st.number_input(
+                                f"점수_{actual_idx}", 0, 50, int(m["s1"]),
+                                key=f"{tid}_{g}_{actual_idx}_s1",
+                                label_visibility="collapsed",
+                                step=1
+                            )
+                        
+                        with c2:
+                            st.markdown('<div class="vs-circle">VS</div>', unsafe_allow_html=True)
+                        
+                        with c3:
+                            st.markdown(f'<div class="team-box {cls}" style="font-size:1rem;">{n2}</div>', unsafe_allow_html=True)
+                            s2 = st.number_input(
+                                f"점수_{actual_idx}_2", 0, 50, int(m["s2"]),
+                                key=f"{tid}_{g}_{actual_idx}_s2",
+                                label_visibility="collapsed",
+                                step=1
+                            )
+                        
+                        if s1 != int(m["s1"]) or s2 != int(m["s2"]):
+                            tour["groups"][g]["matches"][actual_idx]["s1"] = s1
+                            tour["groups"][g]["matches"][actual_idx]["s2"] = s2
+                            changed = True
+                        
+                        if actual_idx < len(matches) - 1:
+                            st.markdown("<hr style='margin: 8px 0;'>", unsafe_allow_html=True)
+                    
+                    st.markdown('</div>', unsafe_allow_html=True)
+            
             if changed:
-                tours[tid]=tour; save_tours(tours); st.toast("✅ 점수 저장됨!")
+                tours[tid] = tour
+                save_tours(tours)
+                st.toast("✅ 점수가 저장되었습니다!", icon="✅")
 
 # ══════════════════════════════════════════════════════════════
-# 3. 📊 경기 결과
+# 3. 📊 경기 결과 (상세 매트릭스 포함)
 # ══════════════════════════════════════════════════════════════
 elif M == "result":
     tours  = load_tours()
@@ -391,7 +489,24 @@ elif M == "result":
         mode=ginfo["mode"]; matches=ginfo["matches"]
         stats=group_stats(matches)
         ranked=sorted(stats.keys(),key=lambda t:(-stats[t]["승"],-stats[t]["득실"]))
+        
         st.markdown(f'<div class="sec">{g} 그룹 ({mode})</div>', unsafe_allow_html=True)
+        
+        # 상세 매트릭스 표시 (확대된 버전)
+        if stats:
+            lab = {t: tname(list(t)) for t in stats.keys()}
+            mat = {lab[t]: {lab[o]: ("■" if t==o else "–") for o in stats.keys()} for t in stats.keys()}
+            for m in matches:
+                t1, t2 = tuple(m["t1"]), tuple(m["t2"])
+                s1, s2 = int(m["s1"]), int(m["s2"])
+                if s1 > 0 or s2 > 0:
+                    mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
+                    mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
+            mdf = pd.DataFrame(mat).T
+            st.markdown("**📊 상세 경기 매트릭스**")
+            st.dataframe(mdf, use_container_width=True)
+        
+        st.markdown("**🏆 최종 순위**")
         rows=[]
         if mode=="고정페어":
             for ri,t in enumerate(ranked):
@@ -406,6 +521,15 @@ elif M == "result":
                     "득실":f'{stats[t]["득실"]:+d}',"부과점":rank_pts(ri+1,mode),
                     "등급":G[ri] if ri<len(G) else "참가"})
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        
+        # 모든 경기 결과 상세 표시
+        with st.expander(f"📋 {g} 전체 경기 결과 상세보기"):
+            mrows=[{"팀1":tname(m["t1"]),"점수1":int(m["s1"]),"점수2":int(m["s2"]),
+                    "팀2":tname(m["t2"]),"결과":(
+                        "🏆 "+tname(m["t1"])+" 승" if int(m["s1"])>int(m["s2"]) else
+                        "🏆 "+tname(m["t2"])+" 승" if int(m["s2"])>int(m["s1"]) else "🤝 무승부")}
+                   for m in matches]
+            st.dataframe(pd.DataFrame(mrows), use_container_width=True, hide_index=True)
 
 # ══════════════════════════════════════════════════════════════
 # 4. 📂 지난 대회 아카이브
@@ -429,6 +553,20 @@ elif M == "archive":
         stats=group_stats(matches)
         ranked=sorted(stats.keys(),key=lambda t:(-stats[t]["승"],-stats[t]["득실"]))
         st.markdown(f'<div class="sec">{g} 그룹 ({mode})</div>', unsafe_allow_html=True)
+        
+        # 매트릭스 표시
+        if stats:
+            lab = {t: tname(list(t)) for t in stats.keys()}
+            mat = {lab[t]: {lab[o]: ("■" if t==o else "–") for o in stats.keys()} for t in stats.keys()}
+            for m in matches:
+                t1, t2 = tuple(m["t1"]), tuple(m["t2"])
+                s1, s2 = int(m["s1"]), int(m["s2"])
+                if s1 > 0 or s2 > 0:
+                    mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
+                    mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
+            mdf = pd.DataFrame(mat).T
+            st.dataframe(mdf, use_container_width=True)
+        
         rows=[{"순위":["🥇","🥈","🥉"][ri] if ri<3 else ri+1,
                "팀/선수":tname(list(t)),"승":stats[t]["승"],"패":stats[t]["패"],
                "득실":f'{stats[t]["득실"]:+d}',"부과점":rank_pts(ri+1,mode),
@@ -507,7 +645,7 @@ elif M == "admin":
                     if st.button("🗑 삭제",key=f"del_{tid2}",use_container_width=True):
                         del tours[tid2]; save_tours(tours); st.rerun()
 
-    # ── 탭2: 참가자·대진 (★ 랭킹순 정렬 추가) ──────────────────
+    # ── 탭2: 참가자·대진 ───────────────────────────────────────
     with adm[1]:
         tours=load_tours()
         active=[k for k,v in tours.items() if v.get("status")=="진행중"]
@@ -538,7 +676,6 @@ elif M == "admin":
             if st.button("✅ 참가자 저장", use_container_width=True, type="primary"):
                 raw_names = part_input.replace("\n",",").split(",")
                 parsed = [n.strip() for n in raw_names if n.strip()]
-                # ★ 회원명부 기준 랭킹순 정렬 (높은 랭킹순)
                 roster_order = {nm:i for i,nm in enumerate(member_roster)}
                 parsed_sorted = sorted(set(parsed),
                     key=lambda x: roster_order.get(x, len(member_roster)+1))
@@ -567,18 +704,14 @@ elif M == "admin":
 
         st.divider()
 
-        # ── 대진 설정 (★ A,B,C 그룹 순서대로 랭킹순 배정) ─────────
-        st.markdown('<div class="sec">그룹·대진 설정 <small>(A,B,C... 그룹 순서대로 랭킹 높은 순 배정)</small></div>',
+        # ── 대진 설정 ─────────────────────────────────────────
+        st.markdown('<div class="sec">그룹·대진 설정 <small>(A,B,C 순서대로 랭킹 높은 순 배정)</small></div>',
                     unsafe_allow_html=True)
         if not sel_names:
             st.warning("먼저 참가자를 저장하세요."); st.stop()
 
         gcnt=st.number_input("그룹 수",1,6,min(4,max(1,len(sel_names)//8)))
-        gns=list("ABCDEF")[:gcnt]
-        gcfg={}
-        
-        # 그룹별 인원수 입력
-        remaining = len(sel_names)
+        gns=list("ABCDEF")[:gcnt]; gcfg={}
         for i,gn in enumerate(gns):
             hx=GHEX[i%len(GHEX)]
             st.markdown(f"<div style='background:{hx}18;border-left:4px solid {hx};"
@@ -586,9 +719,9 @@ elif M == "admin":
                         f"font-weight:800;color:{hx}'>{GLBL[i%len(GLBL)]} 그룹 {gn}</div>",
                         unsafe_allow_html=True)
             cc=st.columns(4)
-            default_sz = max(2, len(sel_names)//gcnt)
+            dfsz=max(2,len(sel_names)//gcnt)
             with cc[0]: nm2=st.text_input("그룹명",gn,key=f"gn{i}")
-            with cc[1]: sz =st.number_input("인원",2,30,default_sz,key=f"sz{i}")
+            with cc[1]: sz =st.number_input("인원",2,30,dfsz,key=f"sz{i}")
             with cc[2]: md =st.selectbox("방식",["고정페어","KDK","단식"],key=f"md{i}")
             with cc[3]: gc =st.selectbox("1인 게임수",[3,4,5],index=1,key=f"gc{i}")
             gcfg[nm2]=(sz,md,gc)
@@ -600,39 +733,26 @@ elif M == "admin":
             +(f" (차이 {diff:+d}명)" if diff else ""))
 
         if st.button("🎲 대진 생성", type="primary", use_container_width=True):
-            # ★ 중요: 참가자를 이미 랭킹순으로 정렬된 상태로 사용
-            # sel_names는 이미 랭킹순으로 정렬되어 있음
-            players_sorted = sel_names  # 랭킹 높은 순
-            
-            ptr=0
-            new_groups={}
-            group_order = list(gcfg.keys())  # A, B, C 순서
+            players_sorted = sel_names
+            ptr=0; new_groups={}
+            group_order = list(gcfg.keys())
             for gn in group_order:
                 sz, md, gc = gcfg[gn]
-                # ★ 랭킹 높은 순으로 A그룹 → B그룹 → C그룹 순서대로 배정
-                gp = players_sorted[ptr:ptr+sz]
-                ptr += sz
-                
+                gp = players_sorted[ptr:ptr+sz]; ptr+=sz
                 st.info(f"📌 {gn} 그룹: {', '.join(gp[:3])}{'...' if len(gp)>3 else ''} ({len(gp)}명)")
-                
-                if md == "고정페어":
-                    ms = make_fixed(gp)
-                elif md == "KDK":
-                    ms = make_kdk(gp, gc)
+                if md=="고정페어": ms=make_fixed(gp)
+                elif md=="KDK":
+                    ms=make_kdk(gp,gc)
                     if not ms:
-                        sh = random.sample(gp, len(gp))
-                        pairs = [sh[i:i+2] for i in range(0,len(sh)-1,2)]
-                        ms = [{"t1":list(a),"t2":list(b),"s1":0,"s2":0}
-                              for x,a in enumerate(pairs) for b in pairs[x+1:]]
+                        sh=random.sample(gp,len(gp))
+                        pairs=[sh[i:i+2] for i in range(0,len(sh)-1,2)]
+                        ms=[{"t1":list(a),"t2":list(b),"s1":0,"s2":0}
+                            for x,a in enumerate(pairs) for b in pairs[x+1:]]
                         st.warning(f"그룹 {gn}: 한울 KDK 없음 → 랜덤 리그")
-                else:
-                    ms = make_singles(gp)
-                
-                new_groups[gn] = {"players": gp, "mode": md, "games": gc, "matches": ms}
-            
-            tours[sel_tid]["groups"] = new_groups
-            save_tours(tours)
-            st.success("✅ 대진 생성 완료! (랭킹 높은 순 → A → B → C 그룹 순으로 배정됨)")
+                else: ms=make_singles(gp)
+                new_groups[gn]={"players":gp,"mode":md,"games":gc,"matches":ms}
+            tours[sel_tid]["groups"]=new_groups; save_tours(tours)
+            st.success("✅ 대진 생성 완료! (랭킹 높은 순 → A → B → C 그룹 순서로 배정됨)")
             st.rerun()
 
     # ── 탭3: 랭킹 관리 ─────────────────────────────────────────
