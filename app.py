@@ -65,19 +65,35 @@ button[data-baseweb="tab"][aria-selected="true"] {
     background:linear-gradient(135deg,#1D5B2E,#388E3C)!important; color:#fff!important;
 }
 
-/* 모든 테이블 가운데 정렬 강화 */
-.dataframe, [data-testid="stDataFrame"], [data-testid="stDataEditor"],
-div[data-testid="stDataFrame"] table, div[data-testid="stDataEditor"] table,
-.stDataFrame, .stDataEditor {
+/* ================================================================
+   모든 테이블 가운데 정렬 - 가장 중요!
+   ================================================================ */
+.dataframe, 
+[data-testid="stDataFrame"], 
+[data-testid="stDataEditor"],
+div[data-testid="stDataFrame"] table, 
+div[data-testid="stDataEditor"] table,
+.stDataFrame, 
+.stDataEditor,
+table.dataframe,
+div.stDataFrame table,
+div.stDataEditor table {
     width: 100% !important;
 }
+
 .dataframe th, .dataframe td,
 [data-testid="stDataFrame"] th, [data-testid="stDataFrame"] td,
 [data-testid="stDataEditor"] th, [data-testid="stDataEditor"] td,
-.stTable th, .stTable td {
+.stTable th, .stTable td,
+table th, table td,
+div[data-testid="stDataFrame"] table th,
+div[data-testid="stDataFrame"] table td,
+div[data-testid="stDataEditor"] table th,
+div[data-testid="stDataEditor"] table td {
     text-align: center !important;
     vertical-align: middle !important;
 }
+
 /* 숫자 입력 필드 가운데 정렬 */
 input[type="number"] {
     text-align: center !important;
@@ -90,8 +106,13 @@ div[data-testid="stNumberInput"] input {
 /* 팀 도형 - 연한 초록/노랑 계열 */
 .team-box {
     border-radius:12px; padding:9px 13px; font-weight:800;
-    font-size:clamp(.82rem,2.4vw,1rem); text-align:center;
-    margin:3px 0; box-shadow:0 3px 8px rgba(0,0,0,.12); line-height:1.4;
+    font-size:clamp(.78rem, 2vw, 0.9rem); text-align:center;
+    margin:3px 0; box-shadow:0 3px 8px rgba(0,0,0,.12); line-height:1.3;
+}
+/* KDK처럼 이름이 많을 때는 글자 크기 조정 */
+.team-box-small {
+    font-size: 0.78rem !important;
+    padding: 6px 10px !important;
 }
 .tg{background:linear-gradient(135deg,#66BB6A,#43A047);color:#fff}
 .tb{background:linear-gradient(135deg,#42A5F5,#1E88E5);color:#fff}
@@ -103,8 +124,8 @@ div[data-testid="stNumberInput"] input {
 /* VS 원 */
 .vs-circle {
     background:#FFB74D; color:#fff; border-radius:50%;
-    width:40px; height:40px; display:flex; align-items:center;
-    justify-content:center; font-weight:900; font-size:.9rem;
+    width:38px; height:38px; display:flex; align-items:center;
+    justify-content:center; font-weight:900; font-size:.8rem;
     margin:0 auto; box-shadow:0 2px 8px rgba(255,183,77,.4);
 }
 
@@ -134,7 +155,7 @@ div[data-testid="stNumberInput"] input {
 .p-tag {
     display:inline-block; background:#E8F5E9; border:1.5px solid #66BB6A;
     border-radius:20px; padding:4px 12px; margin:3px 4px;
-    font-size:.92rem; font-weight:700; color:#1D5B2E;
+    font-size:.88rem; font-weight:700; color:#1D5B2E;
 }
 .rank-card {
     background:#fff; border:1.5px solid #C8E6C9; border-radius:14px;
@@ -152,12 +173,31 @@ div[data-testid="stNumberInput"] input {
     padding: 12px;
     border: 1px solid #C8E6C9;
 }
-/* 매트릭스 내부도 가운데 정렬 */
-.matrix-card table td, .matrix-card table th {
-    text-align: center !important;
+.matrix-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: center;
+}
+.matrix-table th, .matrix-table td {
+    padding: 8px;
+    text-align: center;
+    border: 1px solid #ddd;
+}
+.matrix-table th {
+    background-color: #f5f5f5;
+    font-weight: 700;
+}
+.matrix-grey {
+    background-color: #d0d0d0;
+    color: #d0d0d0;
 }
 hr {
     margin: 8px 0;
+}
+/* 데이터프레임 내부도 강제 가운데 정렬 */
+div[data-testid="stDataFrame"] div[data-testid="StyledDataFrameContainer"] table td,
+div[data-testid="stDataFrame"] div[data-testid="StyledDataFrameContainer"] table th {
+    text-align: center !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -385,7 +425,7 @@ if M == "ranking":
             use_container_width=True)
 
 # ══════════════════════════════════════════════════════════════
-# 2. 📅 대진 및 경기 현황 (applymap 오류 수정)
+# 2. 📅 대진 및 경기 현황
 # ══════════════════════════════════════════════════════════════
 elif M == "schedule":
     tours = load_tours()
@@ -412,6 +452,9 @@ elif M == "schedule":
             cls = GCLS[ti % len(GCLS)]
             stats = group_stats(matches)
             teams = list(stats.keys())
+            
+            # KDK 모드일 때는 개인 순위표만 표시 (팀 아님)
+            is_kdk_or_singles = (mode == "KDK" or mode == "단식")
 
             col_left, col_right = st.columns([3, 2], gap="medium")
             
@@ -427,40 +470,50 @@ elif M == "schedule":
                             mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
                             mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
                     mdf = pd.DataFrame(mat).T
-                    # 오류 해결: applymap 대신 HTML로 직접 스타일링
-                    st.markdown('<div class="matrix-card">', unsafe_allow_html=True)
-                    # HTML 테이블로 직접 표시 (가운데 정렬 및 회색 음영 보장)
-                    html_table = '<table style="width:100%; border-collapse:collapse; text-align:center;">'
+                    
+                    # HTML 테이블로 표시
+                    html_table = '<table class="matrix-table">'
                     html_table += '<thead><tr><th></th>'
                     for col in mdf.columns:
-                        html_table += f'<th style="padding:8px; text-align:center;">{col}</th>'
+                        html_table += f'<th>{col}</th>'
                     html_table += '</tr></thead><tbody>'
                     for idx, row in mdf.iterrows():
-                        html_table += f'<tr><td style="padding:8px; font-weight:bold; text-align:center;">{idx}</td>'
+                        html_table += f'<tr><td><strong>{idx}</strong></td>'
                         for col in mdf.columns:
                             val = row[col]
                             if val == '■':
-                                html_table += f'<td style="background-color:#d0d0d0; color:#d0d0d0; padding:8px; text-align:center;">{val}</td>'
+                                html_table += f'<td class="matrix-grey">{val}</td>'
                             else:
-                                html_table += f'<td style="padding:8px; text-align:center;">{val}</td>'
+                                html_table += f'<td>{val}</td>'
                         html_table += '</tr>'
                     html_table += '</tbody></table>'
                     st.markdown(html_table, unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
                 else:
                     st.info("경기 데이터가 없습니다.")
             
             with col_right:
                 st.markdown("**🏅 현재 순위**")
                 if teams:
-                    ranked = sorted(teams, key=lambda t: (-stats[t]["승"], -stats[t]["득실"]))
-                    rdf = pd.DataFrame([{
-                        "순위": ["🥇","🥈","🥉"][i] if i<3 else i+1,
-                        "팀/선수": tname(list(t)),
-                        "승": stats[t]["승"],
-                        "패": stats[t]["패"],
-                        "득실": f'{stats[t]["득실"]:+d}'
-                    } for i, t in enumerate(ranked)])
+                    if is_kdk_or_singles:
+                        # KDK/단식: 개인 순위표
+                        ranked = sorted(teams, key=lambda t: (-stats[t]["승"], -stats[t]["득실"]))
+                        rdf = pd.DataFrame([{
+                            "순위": ["🥇","🥈","🥉"][i] if i<3 else i+1,
+                            "선수": tname(list(t)),
+                            "승": stats[t]["승"],
+                            "패": stats[t]["패"],
+                            "득실": f'{stats[t]["득실"]:+d}'
+                        } for i, t in enumerate(ranked)])
+                    else:
+                        # 고정페어: 팀 순위표
+                        ranked = sorted(teams, key=lambda t: (-stats[t]["승"], -stats[t]["득실"]))
+                        rdf = pd.DataFrame([{
+                            "순위": ["🥇","🥈","🥉"][i] if i<3 else i+1,
+                            "팀": tname(list(t)),
+                            "승": stats[t]["승"],
+                            "패": stats[t]["패"],
+                            "득실": f'{stats[t]["득실"]:+d}'
+                        } for i, t in enumerate(ranked)])
                     st.dataframe(rdf, use_container_width=True, hide_index=True)
                 else:
                     st.info("순위 정보가 없습니다.")
@@ -468,6 +521,9 @@ elif M == "schedule":
             st.divider()
             
             st.markdown("**🎾 경기 입력**")
+            
+            # KDK 모드일 때는 이름이 많으므로 글자 크기 작게
+            name_size_class = "team-box-small" if is_kdk_or_singles and len(teams) > 6 else ""
             
             changed = False
             for mi, m in enumerate(matches):
@@ -477,7 +533,7 @@ elif M == "schedule":
                 c1, c2, c3 = st.columns([4, 1, 4])
                 
                 with c1:
-                    st.markdown(f'<div class="team-box {cls}" style="font-size:1rem;">{n1}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="team-box {cls} {name_size_class}" style="font-size:0.85rem;">{n1}</div>', unsafe_allow_html=True)
                     s1 = st.number_input(f"점수_{mi}", 0, 50, int(m["s1"]),
                                          key=f"{tid}_{g}_{mi}_s1",
                                          label_visibility="collapsed",
@@ -487,7 +543,7 @@ elif M == "schedule":
                     st.markdown('<div class="vs-circle">VS</div>', unsafe_allow_html=True)
                 
                 with c3:
-                    st.markdown(f'<div class="team-box {cls}" style="font-size:1rem;">{n2}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="team-box {cls} {name_size_class}" style="font-size:0.85rem;">{n2}</div>', unsafe_allow_html=True)
                     s2 = st.number_input(f"점수_{mi}_2", 0, 50, int(m["s2"]),
                                          key=f"{tid}_{g}_{mi}_s2",
                                          label_visibility="collapsed",
@@ -540,20 +596,19 @@ elif M == "result":
             mdf = pd.DataFrame(mat).T
             
             st.markdown("**📊 상세 경기 매트릭스**")
-            # HTML 테이블로 표시
-            html_table = '<table style="width:100%; border-collapse:collapse; text-align:center;">'
+            html_table = '<table class="matrix-table">'
             html_table += '<thead><tr><th></th>'
             for col in mdf.columns:
-                html_table += f'<th style="padding:8px; text-align:center;">{col}</th>'
-            html_table += '</tr></thead><tbody>'
+                html_table += f'<th>{col}</th>'
+            html_table += '</table></thead><tbody>'
             for idx, row in mdf.iterrows():
-                html_table += f'<tr><td style="padding:8px; font-weight:bold; text-align:center;">{idx}</td>'
+                html_table += f'<tr><td><strong>{idx}</strong></td>'
                 for col in mdf.columns:
                     val = row[col]
                     if val == '■':
-                        html_table += f'<td style="background-color:#d0d0d0; color:#d0d0d0; padding:8px; text-align:center;">{val}</td>'
+                        html_table += f'<td class="matrix-grey">{val}</td>'
                     else:
-                        html_table += f'<td style="padding:8px; text-align:center;">{val}</td>'
+                        html_table += f'<td>{val}</td>'
                 html_table += '</tr>'
             html_table += '</tbody></table>'
             st.markdown(html_table, unsafe_allow_html=True)
@@ -561,8 +616,10 @@ elif M == "result":
         st.markdown("**🏆 최종 순위**")
         rows = []
         G = ["우승","우승","준우승","준우승","3위","3위"]
+        is_kdk_or_singles = (mode == "KDK" or mode == "단식")
+        
         for ri, t in enumerate(ranked):
-            if mode == "고정페어":
+            if not is_kdk_or_singles:  # 고정페어
                 grade = ["우승","준우승","3위"][ri] if ri<3 else "참가"
                 rows.append({
                     "순위": ["🥇","🥈","🥉"][ri] if ri<3 else ri+1,
@@ -573,7 +630,7 @@ elif M == "result":
                     "부과점": rank_pts(ri+1, mode),
                     "등급": grade
                 })
-            else:
+            else:  # KDK/단식 - 개인 순위
                 grade = G[ri] if ri<len(G) else "참가"
                 rows.append({
                     "순위": ri+1,
@@ -588,10 +645,10 @@ elif M == "result":
         
         with st.expander(f"📋 {g} 전체 경기 결과 상세보기"):
             mrows = [{
-                "팀1": tname(m["t1"]),
+                "팀1/선수1": tname(m["t1"]),
                 "점수1": int(m["s1"]),
                 "점수2": int(m["s2"]),
-                "팀2": tname(m["t2"]),
+                "팀2/선수2": tname(m["t2"]),
                 "결과": ("🏆 "+tname(m["t1"])+" 승" if int(m["s1"])>int(m["s2"]) else
                         "🏆 "+tname(m["t2"])+" 승" if int(m["s2"])>int(m["s1"]) else "🤝 무승부")
             } for m in matches]
@@ -637,47 +694,61 @@ elif M == "archive":
                     mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
             mdf = pd.DataFrame(mat).T
             
-            html_table = '<table style="width:100%; border-collapse:collapse; text-align:center;">'
+            html_table = '<table class="matrix-table">'
             html_table += '<thead><tr><th></th>'
             for col in mdf.columns:
-                html_table += f'<th style="padding:8px; text-align:center;">{col}</th>'
+                html_table += f'<th>{col}</th>'
             html_table += '</tr></thead><tbody>'
             for idx, row in mdf.iterrows():
-                html_table += f'<tr><td style="padding:8px; font-weight:bold; text-align:center;">{idx}</td>'
+                html_table += f'<tr><td><strong>{idx}</strong></td>'
                 for col in mdf.columns:
                     val = row[col]
                     if val == '■':
-                        html_table += f'<td style="background-color:#d0d0d0; color:#d0d0d0; padding:8px; text-align:center;">{val}</td>'
+                        html_table += f'<td class="matrix-grey">{val}</td>'
                     else:
-                        html_table += f'<td style="padding:8px; text-align:center;">{val}</td>'
+                        html_table += f'<td>{val}</td>'
                 html_table += '</tr>'
             html_table += '</tbody></table>'
             st.markdown(html_table, unsafe_allow_html=True)
         
-        rows = [{
-            "순위": ["🥇","🥈","🥉"][ri] if ri<3 else ri+1,
-            "팀/선수": tname(list(t)),
-            "승": stats[t]["승"],
-            "패": stats[t]["패"],
-            "득실": f'{stats[t]["득실"]:+d}',
-            "부과점": rank_pts(ri+1, mode),
-            "등급": (["우승","준우승","3위"][ri] if mode=="고정페어" and ri<3 else G[ri] if ri<len(G) else "참가")
-        } for ri, t in enumerate(ranked)]
+        is_kdk_or_singles = (mode == "KDK" or mode == "단식")
+        rows = []
+        for ri, t in enumerate(ranked):
+            if not is_kdk_or_singles:
+                rows.append({
+                    "순위": ["🥇","🥈","🥉"][ri] if ri<3 else ri+1,
+                    "팀/선수": tname(list(t)),
+                    "승": stats[t]["승"],
+                    "패": stats[t]["패"],
+                    "득실": f'{stats[t]["득실"]:+d}',
+                    "부과점": rank_pts(ri+1, mode),
+                    "등급": (["우승","준우승","3위"][ri] if mode=="고정페어" and ri<3 else G[ri] if ri<len(G) else "참가")
+                })
+            else:
+                rows.append({
+                    "순위": ri+1,
+                    "팀/선수": tname(list(t)),
+                    "승": stats[t]["승"],
+                    "패": stats[t]["패"],
+                    "득실": f'{stats[t]["득실"]:+d}',
+                    "부과점": rank_pts(ri+1, mode),
+                    "등급": G[ri] if ri<len(G) else "참가"
+                })
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
         
         with st.expander(f"📋 {g} 전체 경기 결과"):
             mrows = [{
-                "팀1": tname(m["t1"]),
+                "팀1/선수1": tname(m["t1"]),
                 "점수1": int(m["s1"]),
                 "점수2": int(m["s2"]),
-                "팀2": tname(m["t2"]),
+                "팀2/선수2": tname(m["t2"]),
                 "결과": ("🏆 "+tname(m["t1"])+" 승" if int(m["s1"])>int(m["s2"]) else
                         "🏆 "+tname(m["t2"])+" 승" if int(m["s2"])>int(m["s1"]) else "🤝 무승부")
             } for m in matches]
             st.dataframe(pd.DataFrame(mrows), use_container_width=True, hide_index=True)
 
 # ══════════════════════════════════════════════════════════════
-# 5. ⚙️ 관리자
+# 5. ⚙️ 관리자 (이전 코드와 동일하므로 생략 - 필요시 포함)
 # ══════════════════════════════════════════════════════════════
 elif M == "admin":
     st.markdown("<div class='main-hdr'>⚙️ 관리자 센터</div>", unsafe_allow_html=True)
