@@ -66,17 +66,13 @@ button[data-baseweb="tab"][aria-selected="true"] {
     background:linear-gradient(135deg,#1D5B2E,#388E3C)!important; color:#fff!important;
 }
 
-/* ================================================================
-   ★★★★★ 강력한 가운데 정렬 - 모든 테이블 요소에 적용 ★★★★★
-   ================================================================ */
+/* 강력한 가운데 정렬 */
 div[data-testid="stDataFrame"] table,
 div[data-testid="stDataEditor"] table,
 .stDataFrame table,
 .stDataEditor table,
 table.dataframe,
-.dataframe,
-[data-testid="stDataFrame"],
-[data-testid="stDataEditor"] {
+.dataframe {
     width: 100% !important;
 }
 
@@ -284,16 +280,39 @@ def tname(t):
     return " & ".join(t) if len(t)>1 else t[0]
 
 def group_stats(matches):
+    """개인 단식 통계 계산 (각 선수별로 승/패/득실 계산)"""
     stats = {}
     for m in matches:
-        t1,t2 = tuple(m["t1"]),tuple(m["t2"])
-        for t in [t1,t2]:
-            if t not in stats: stats[t]={"승":0,"패":0,"득실":0}
-        s1,s2 = int(m["s1"]),int(m["s2"])
-        if s1>s2:   stats[t1]["승"]+=1; stats[t2]["패"]+=1
-        elif s2>s1: stats[t2]["승"]+=1; stats[t1]["패"]+=1
-        stats[t1]["득실"]+=(s1-s2)
-        stats[t2]["득실"]+=(s2-s1)
+        # t1과 t2는 각각 [선수1] 또는 [선수1, 선수2] 형태
+        players1 = m["t1"]
+        players2 = m["t2"]
+        
+        # 모든 선수 초기화
+        for p in players1 + players2:
+            if p not in stats:
+                stats[p] = {"승": 0, "패": 0, "득실": 0}
+        
+        s1 = int(m["s1"])
+        s2 = int(m["s2"])
+        
+        if s1 > s2:  # t1 승리
+            for p in players1:
+                stats[p]["승"] += 1
+            for p in players2:
+                stats[p]["패"] += 1
+        elif s2 > s1:  # t2 승리
+            for p in players2:
+                stats[p]["승"] += 1
+            for p in players1:
+                stats[p]["패"] += 1
+        # 무승부는 아무것도 하지 않음
+        
+        # 득실 계산 (각 선수 개인별로)
+        for p in players1:
+            stats[p]["득실"] += (s1 - s2)
+        for p in players2:
+            stats[p]["득실"] += (s2 - s1)
+    
     return stats
 
 def rank_pts(rank, mode):
@@ -324,6 +343,7 @@ def get_grade_kdk(rank):
 # KDK 대진 생성 함수
 # ══════════════════════════════════════════════════════════════
 def make_kdk(players, games_per_person):
+    """KDK 대진 생성 - 개인 단식"""
     n = len(players)
     
     if games_per_person == 3:
@@ -337,10 +357,21 @@ def make_kdk(players, games_per_person):
     shuffled = random.sample(players, n)
     
     matches = []
-    for a,b,c,d in bp:
+    for a, b, c, d in bp:
+        # KDK는 2:2 더블즈이지만, 여기서는 개인 단식으로 처리하기 위해
+        # 각 매치를 개인 vs 개인으로 변환
+        # (a,b) vs (c,d) → a vs c, a vs d, b vs c, b vs d (4개 매치)
+        # 하지만 원래 KDK 규칙에 따라 한 매치로 처리
         matches.append({
-            "t1": [shuffled[a-1], shuffled[b-1]],
-            "t2": [shuffled[c-1], shuffled[d-1]],
+            "t1": [shuffled[a-1]],  # 개인 단식
+            "t2": [shuffled[c-1]],  # 개인 단식
+            "s1": 0,
+            "s2": 0
+        })
+        # 두 번째 매치
+        matches.append({
+            "t1": [shuffled[b-1]],
+            "t2": [shuffled[d-1]],
             "s1": 0,
             "s2": 0
         })
@@ -454,8 +485,10 @@ elif M == "schedule":
             matches = ginfo["matches"]
             mode = ginfo["mode"]
             cls = GCLS[ti % len(GCLS)]
+            
+            # 개인 단식 통계 계산
             stats = group_stats(matches)
-            teams = list(stats.keys())
+            players = list(stats.keys())
             
             is_kdk_or_singles = (mode == "KDK" or mode == "단식")
 
@@ -463,15 +496,16 @@ elif M == "schedule":
             
             with col_left:
                 st.markdown("**📋 상대별 전적 매트릭스**")
-                if teams:
-                    lab = {t: tname(list(t)) for t in teams}
-                    mat = {lab[t]: {lab[o]: ("■" if t==o else "–") for o in teams} for t in teams}
+                if players:
+                    # 매트릭스 생성을 위한 준비
+                    mat = {p: {q: ("■" if p==q else "–") for q in players} for p in players}
                     for m in matches:
-                        t1, t2 = tuple(m["t1"]), tuple(m["t2"])
+                        p1 = m["t1"][0] if len(m["t1"]) > 0 else ""
+                        p2 = m["t2"][0] if len(m["t2"]) > 0 else ""
                         s1, s2 = int(m["s1"]), int(m["s2"])
                         if s1 > 0 or s2 > 0:
-                            mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
-                            mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
+                            mat[p1][p2] = f"{s1}:{s2}"
+                            mat[p2][p1] = f"{s2}:{s1}"
                     mdf = pd.DataFrame(mat).T
                     
                     html_table = '<table class="matrix-table">'
@@ -495,38 +529,34 @@ elif M == "schedule":
             
             with col_right:
                 st.markdown("**🏅 현재 순위**")
-                if teams:
-                    ranked = sorted(teams, key=lambda t: (-stats[t]["승"], -stats[t]["득실"]))
+                if players:
+                    # 승-득실 기준으로 정렬
+                    ranked = sorted(players, key=lambda p: (-stats[p]["승"], -stats[p]["득실"]))
                     
-                    if is_kdk_or_singles:
-                        # KDK/단식: 개인 순위 + 비고에 등급 묶음 표시
-                        rows = []
-                        for i, t in enumerate(ranked):
+                    rows = []
+                    for i, p in enumerate(ranked):
+                        if is_kdk_or_singles:
                             grade = get_grade_kdk(i+1)
                             rows.append({
                                 "순위": ["🥇","🥈","🥉"][i] if i<3 else i+1,
-                                "선수": tname(list(t)),
-                                "승": stats[t]["승"],
-                                "패": stats[t]["패"],
-                                "득실": f'{stats[t]["득실"]:+d}',
+                                "선수": p,
+                                "승": stats[p]["승"],
+                                "패": stats[p]["패"],
+                                "득실": f'{stats[p]["득실"]:+d}',
                                 "비고": grade
                             })
-                        rdf = pd.DataFrame(rows)
-                    else:
-                        # 고정페어: 팀 순위
-                        rows = []
-                        for i, t in enumerate(ranked):
+                        else:
+                            # 고정페어 (팀 단위)
                             grade = ["우승","준우승","3위"][i] if i<3 else "참가"
                             rows.append({
                                 "순위": ["🥇","🥈","🥉"][i] if i<3 else i+1,
-                                "팀": tname(list(t)),
-                                "승": stats[t]["승"],
-                                "패": stats[t]["패"],
-                                "득실": f'{stats[t]["득실"]:+d}',
+                                "팀": p,
+                                "승": stats[p]["승"],
+                                "패": stats[p]["패"],
+                                "득실": f'{stats[p]["득실"]:+d}',
                                 "비고": grade
                             })
-                        rdf = pd.DataFrame(rows)
-                    
+                    rdf = pd.DataFrame(rows)
                     st.dataframe(rdf, use_container_width=True, hide_index=True)
                 else:
                     st.info("순위 정보가 없습니다.")
@@ -535,17 +565,17 @@ elif M == "schedule":
             
             st.markdown("**🎾 경기 입력**")
             
-            name_size_class = "team-box-small" if is_kdk_or_singles and len(teams) > 6 else ""
+            name_size_class = "team-box-small" if is_kdk_or_singles and len(players) > 6 else ""
             
             changed = False
             for mi, m in enumerate(matches):
-                t1, t2 = m["t1"], m["t2"]
-                n1, n2 = tname(t1), tname(t2)
+                t1 = m["t1"][0] if len(m["t1"]) > 0 else ""
+                t2 = m["t2"][0] if len(m["t2"]) > 0 else ""
                 
                 c1, c2, c3 = st.columns([4, 1, 4])
                 
                 with c1:
-                    st.markdown(f'<div class="team-box {cls} {name_size_class}" style="font-size:0.85rem;">{n1}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="team-box {cls} {name_size_class}" style="font-size:0.85rem;">{t1}</div>', unsafe_allow_html=True)
                     s1 = st.number_input(f"점수_{mi}", 0, 50, int(m["s1"]),
                                          key=f"{tid}_{g}_{mi}_s1",
                                          label_visibility="collapsed",
@@ -555,7 +585,7 @@ elif M == "schedule":
                     st.markdown('<div class="vs-circle">VS</div>', unsafe_allow_html=True)
                 
                 with c3:
-                    st.markdown(f'<div class="team-box {cls} {name_size_class}" style="font-size:0.85rem;">{n2}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="team-box {cls} {name_size_class}" style="font-size:0.85rem;">{t2}</div>', unsafe_allow_html=True)
                     s2 = st.number_input(f"점수_{mi}_2", 0, 50, int(m["s2"]),
                                          key=f"{tid}_{g}_{mi}_s2",
                                          label_visibility="collapsed",
@@ -591,20 +621,21 @@ elif M == "result":
         mode = ginfo["mode"]
         matches = ginfo["matches"]
         stats = group_stats(matches)
-        ranked = sorted(stats.keys(), key=lambda t: (-stats[t]["승"], -stats[t]["득실"]))
+        players = list(stats.keys())
+        ranked = sorted(players, key=lambda p: (-stats[p]["승"], -stats[p]["득실"]))
         
         st.markdown(f'<div class="sec">{g} 그룹 ({mode})</div>', unsafe_allow_html=True)
         
         # 매트릭스 표시
-        if stats:
-            lab = {t: tname(list(t)) for t in stats.keys()}
-            mat = {lab[t]: {lab[o]: ("■" if t==o else "–") for o in stats.keys()} for t in stats.keys()}
+        if players:
+            mat = {p: {q: ("■" if p==q else "–") for q in players} for p in players}
             for m in matches:
-                t1, t2 = tuple(m["t1"]), tuple(m["t2"])
+                p1 = m["t1"][0] if len(m["t1"]) > 0 else ""
+                p2 = m["t2"][0] if len(m["t2"]) > 0 else ""
                 s1, s2 = int(m["s1"]), int(m["s2"])
                 if s1 > 0 or s2 > 0:
-                    mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
-                    mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
+                    mat[p1][p2] = f"{s1}:{s2}"
+                    mat[p2][p1] = f"{s2}:{s1}"
             mdf = pd.DataFrame(mat).T
             
             st.markdown("**📊 상세 경기 매트릭스**")
@@ -629,28 +660,28 @@ elif M == "result":
         rows = []
         is_kdk_or_singles = (mode == "KDK" or mode == "단식")
         
-        for ri, t in enumerate(ranked):
-            pt = rank_pts(ri+1, mode)
+        for i, p in enumerate(ranked):
+            pt = rank_pts(i+1, mode)
             
             if not is_kdk_or_singles:  # 고정페어
-                grade = ["우승","준우승","3위"][ri] if ri<3 else "참가"
+                grade = ["우승","준우승","3위"][i] if i<3 else "참가"
                 rows.append({
-                    "순위": ["🥇","🥈","🥉"][ri] if ri<3 else ri+1,
-                    "팀": tname(list(t)),
-                    "승": stats[t]["승"],
-                    "패": stats[t]["패"],
-                    "득실": f'{stats[t]["득실"]:+d}',
+                    "순위": ["🥇","🥈","🥉"][i] if i<3 else i+1,
+                    "팀": p,
+                    "승": stats[p]["승"],
+                    "패": stats[p]["패"],
+                    "득실": f'{stats[p]["득실"]:+d}',
                     "부과점": pt,
                     "등급": grade
                 })
-            else:  # KDK/단식 - 개인 순위 + 등급 묶음 (비고)
-                grade = get_grade_kdk(ri+1)
+            else:  # KDK/단식 - 개인 순위
+                grade = get_grade_kdk(i+1)
                 rows.append({
-                    "순위": ri+1,
-                    "선수": tname(list(t)),
-                    "승": stats[t]["승"],
-                    "패": stats[t]["패"],
-                    "득실": f'{stats[t]["득실"]:+d}',
+                    "순위": i+1,
+                    "선수": p,
+                    "승": stats[p]["승"],
+                    "패": stats[p]["패"],
+                    "득실": f'{stats[p]["득실"]:+d}',
                     "부과점": pt,
                     "비고": grade
                 })
@@ -658,12 +689,12 @@ elif M == "result":
         
         with st.expander(f"📋 {g} 전체 경기 결과 상세보기"):
             mrows = [{
-                "팀1/선수1": tname(m["t1"]),
+                "선수1": m["t1"][0] if len(m["t1"]) > 0 else "",
                 "점수1": int(m["s1"]),
                 "점수2": int(m["s2"]),
-                "팀2/선수2": tname(m["t2"]),
-                "결과": ("🏆 "+tname(m["t1"])+" 승" if int(m["s1"])>int(m["s2"]) else
-                        "🏆 "+tname(m["t2"])+" 승" if int(m["s2"])>int(m["s1"]) else "🤝 무승부")
+                "선수2": m["t2"][0] if len(m["t2"]) > 0 else "",
+                "결과": ("🏆 " + (m["t1"][0] if len(m["t1"]) > 0 else "") + " 승" if int(m["s1"])>int(m["s2"]) else
+                        "🏆 " + (m["t2"][0] if len(m["t2"]) > 0 else "") + " 승" if int(m["s2"])>int(m["s1"]) else "🤝 무승부")
             } for m in matches]
             st.dataframe(pd.DataFrame(mrows), use_container_width=True, hide_index=True)
 
@@ -691,19 +722,20 @@ elif M == "archive":
         mode = ginfo["mode"]
         matches = ginfo["matches"]
         stats = group_stats(matches)
-        ranked = sorted(stats.keys(), key=lambda t: (-stats[t]["승"], -stats[t]["득실"]))
+        players = list(stats.keys())
+        ranked = sorted(players, key=lambda p: (-stats[p]["승"], -stats[p]["득실"]))
         st.markdown(f'<div class="sec">{g} 그룹 ({mode})</div>', unsafe_allow_html=True)
         
         # 매트릭스 표시
-        if stats:
-            lab = {t: tname(list(t)) for t in stats.keys()}
-            mat = {lab[t]: {lab[o]: ("■" if t==o else "–") for o in stats.keys()} for t in stats.keys()}
+        if players:
+            mat = {p: {q: ("■" if p==q else "–") for q in players} for p in players}
             for m in matches:
-                t1, t2 = tuple(m["t1"]), tuple(m["t2"])
+                p1 = m["t1"][0] if len(m["t1"]) > 0 else ""
+                p2 = m["t2"][0] if len(m["t2"]) > 0 else ""
                 s1, s2 = int(m["s1"]), int(m["s2"])
                 if s1 > 0 or s2 > 0:
-                    mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
-                    mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
+                    mat[p1][p2] = f"{s1}:{s2}"
+                    mat[p2][p1] = f"{s2}:{s1}"
             mdf = pd.DataFrame(mat).T
             
             html_table = '<table class="matrix-table">'
@@ -725,27 +757,27 @@ elif M == "archive":
         
         is_kdk_or_singles = (mode == "KDK" or mode == "단식")
         rows = []
-        for ri, t in enumerate(ranked):
-            pt = rank_pts(ri+1, mode)
+        for i, p in enumerate(ranked):
+            pt = rank_pts(i+1, mode)
             if not is_kdk_or_singles:
-                grade = ["우승","준우승","3위"][ri] if ri<3 else "참가"
+                grade = ["우승","준우승","3위"][i] if i<3 else "참가"
                 rows.append({
-                    "순위": ["🥇","🥈","🥉"][ri] if ri<3 else ri+1,
-                    "팀/선수": tname(list(t)),
-                    "승": stats[t]["승"],
-                    "패": stats[t]["패"],
-                    "득실": f'{stats[t]["득실"]:+d}',
+                    "순위": ["🥇","🥈","🥉"][i] if i<3 else i+1,
+                    "팀/선수": p,
+                    "승": stats[p]["승"],
+                    "패": stats[p]["패"],
+                    "득실": f'{stats[p]["득실"]:+d}',
                     "부과점": pt,
                     "등급": grade
                 })
             else:
-                grade = get_grade_kdk(ri+1)
+                grade = get_grade_kdk(i+1)
                 rows.append({
-                    "순위": ri+1,
-                    "선수": tname(list(t)),
-                    "승": stats[t]["승"],
-                    "패": stats[t]["패"],
-                    "득실": f'{stats[t]["득실"]:+d}',
+                    "순위": i+1,
+                    "선수": p,
+                    "승": stats[p]["승"],
+                    "패": stats[p]["패"],
+                    "득실": f'{stats[p]["득실"]:+d}',
                     "부과점": pt,
                     "비고": grade
                 })
@@ -753,17 +785,17 @@ elif M == "archive":
         
         with st.expander(f"📋 {g} 전체 경기 결과"):
             mrows = [{
-                "팀1/선수1": tname(m["t1"]),
+                "선수1": m["t1"][0] if len(m["t1"]) > 0 else "",
                 "점수1": int(m["s1"]),
                 "점수2": int(m["s2"]),
-                "팀2/선수2": tname(m["t2"]),
-                "결과": ("🏆 "+tname(m["t1"])+" 승" if int(m["s1"])>int(m["s2"]) else
-                        "🏆 "+tname(m["t2"])+" 승" if int(m["s2"])>int(m["s1"]) else "🤝 무승부")
+                "선수2": m["t2"][0] if len(m["t2"]) > 0 else "",
+                "결과": ("🏆 " + (m["t1"][0] if len(m["t1"]) > 0 else "") + " 승" if int(m["s1"])>int(m["s2"]) else
+                        "🏆 " + (m["t2"][0] if len(m["t2"]) > 0 else "") + " 승" if int(m["s2"])>int(m["s1"]) else "🤝 무승부")
             } for m in matches]
             st.dataframe(pd.DataFrame(mrows), use_container_width=True, hide_index=True)
 
 # ══════════════════════════════════════════════════════════════
-# 5. ⚙️ 관리자
+# 5. ⚙️ 관리자 (이전과 동일)
 # ══════════════════════════════════════════════════════════════
 elif M == "admin":
     st.markdown("<div class='main-hdr'>⚙️ 관리자 센터</div>", unsafe_allow_html=True)
@@ -1090,22 +1122,21 @@ elif M == "admin":
             mode = ginfo["mode"]
             matches = ginfo["matches"]
             stats = group_stats(matches)
-            ranked = sorted(stats.keys(), key=lambda t: (-stats[t]["승"], -stats[t]["득실"]))
-            for ri, t in enumerate(ranked):
-                pt = rank_pts(ri+1, mode)
+            players = list(stats.keys())
+            ranked = sorted(players, key=lambda p: (-stats[p]["승"], -stats[p]["득실"]))
+            for i, p in enumerate(ranked):
+                pt = rank_pts(i+1, mode)
                 if mode == "고정페어":
-                    grade = ["우승","준우승","3위"][ri] if ri<3 else "참가"
+                    grade = ["우승","준우승","3위"][i] if i<3 else "참가"
                 else:
-                    grade = get_grade_kdk(ri+1)
-                for p in list(t):
-                    earn[p] = pt
-                    prev_rows.append({
-                        "그룹": g,
-                        "팀/선수": tname(list(t)),
-                        "등급": grade,
-                        "이름": p,
-                        "부과점": pt
-                    })
+                    grade = get_grade_kdk(i+1)
+                earn[p] = pt
+                prev_rows.append({
+                    "그룹": g,
+                    "선수": p,
+                    "등급": grade,
+                    "부과점": pt
+                })
 
         if prev_rows:
             st.dataframe(pd.DataFrame(prev_rows), use_container_width=True, hide_index=True)
