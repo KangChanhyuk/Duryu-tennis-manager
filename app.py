@@ -252,8 +252,9 @@ GHEX = ["#66BB6A","#42A5F5","#FFA726","#AB47BC","#EF5350","#26A69A"]
 GLBL = ["🟢","🔵","🟠","🟣","🔴","🩵"]
 
 # ══════════════════════════════════════════════════════════════
-# KDK 대진표 (1인 3게임) - 번호 기반
+# KDK 대진표 (1인 3게임) - 정확한 대진표
 # ══════════════════════════════════════════════════════════════
+# 형식: (a,b,c,d) = (a,b)팀 vs (c,d)팀
 KDK_3G = {
     4: [(1,4,2,3), (1,3,2,4), (1,2,3,4)],
     8: [(1,2,3,4), (5,6,7,8), (1,8,2,7), (3,6,4,5), (1,4,5,8), (2,3,6,7)],
@@ -262,8 +263,9 @@ KDK_3G = {
 }
 
 # ══════════════════════════════════════════════════════════════
-# KDK 대진표 (1인 4게임) - 번호 기반
+# KDK 대진표 (1인 4게임) - 정확한 대진표
 # ══════════════════════════════════════════════════════════════
+# 형식: (a,b,c,d) = (a,b)팀 vs (c,d)팀
 KDK_4G = {
     5: [(1,2,3,4), (1,3,2,5), (1,4,3,5), (1,5,2,4), (2,3,4,5)],
     6: [(1,3,2,4), (1,5,4,6), (2,3,5,6), (1,4,3,5), (2,6,3,4), (1,6,2,5)],
@@ -399,10 +401,10 @@ def get_grade_kdk(rank):
         return "참가"
 
 # ══════════════════════════════════════════════════════════════
-# KDK 대진 생성 함수 (번호 기반) - 페어 단위
+# KDK 대진 생성 함수 (정확한 대진표 적용)
 # ══════════════════════════════════════════════════════════════
 def make_kdk(players, games_per_person):
-    """KDK 대진 생성 - 페어(2:2) 단위로 경기"""
+    """KDK 대진 생성 - 정확한 대진표 적용, 페어 단위"""
     n = len(players)
     
     if games_per_person == 3:
@@ -419,7 +421,7 @@ def make_kdk(players, games_per_person):
     
     matches = []
     for a, b, c, d in bp:
-        # a,b가 한 팀, c,d가 한 팀 (2:2 더블즈)
+        # (a,b)가 한 팀, (c,d)가 한 팀 (2:2 더블즈)
         matches.append({
             "t1": [player_by_number[a], player_by_number[b]],
             "t2": [player_by_number[c], player_by_number[d]],
@@ -555,13 +557,12 @@ elif M == "schedule":
             with col_left:
                 st.markdown("**📋 상대별 전적 매트릭스**")
                 if matches:
-                    # 매트릭스용 라벨 - KDK는 개인 vs 개인으로 표시
+                    # 매트릭스용 라벨
                     if is_fixed:
-                        # 고정페어: 팀 vs 팀
                         all_teams = list(set([tuple(m["t1"]) for m in matches] + [tuple(m["t2"]) for m in matches]))
                         lab = {t: " & ".join(list(t)) for t in all_teams}
                     else:
-                        # KDK: 개인 vs 개인
+                        # KDK: 개인 vs 개인으로 표시
                         all_players = list(set([p for m in matches for p in m["t1"] + m["t2"]]))
                         lab = {p: p for p in all_players}
                     
@@ -571,7 +572,6 @@ elif M == "schedule":
                             t1 = tuple(m["t1"])
                             t2 = tuple(m["t2"])
                         else:
-                            # KDK: 페어 간 경기 결과를 개인 매치로 표시
                             players1 = m["t1"]
                             players2 = m["t2"]
                         s1, s2 = int(m["s1"]), int(m["s2"])
@@ -592,7 +592,7 @@ elif M == "schedule":
                         html_table += f'<th>{col}</th>'
                     html_table += '</tr></thead><tbody>'
                     for idx, row in mdf.iterrows():
-                        html_table += f'<tr><td><strong>{idx}</strong></td>'
+                        html_table += f'</table><td><strong>{idx}</strong></td>'
                         for col in mdf.columns:
                             val = row[col]
                             if val == '■':
@@ -700,7 +700,6 @@ elif M == "result":
         matches = ginfo["matches"]
         
         is_fixed = (mode == "고정페어")
-        is_kdk = (mode == "KDK")
         
         # 순위 계산
         if is_fixed:
@@ -848,7 +847,7 @@ elif M == "archive":
             st.dataframe(pd.DataFrame(mrows), use_container_width=True, hide_index=True)
 
 # ══════════════════════════════════════════════════════════════
-# 5. ⚙️ 관리자 (이전 코드와 동일 - 생략...)
+# 5. ⚙️ 관리자 (기존 코드 유지 - 간소화하여 표시)
 # ══════════════════════════════════════════════════════════════
 elif M == "admin":
     st.markdown("<div class='main-hdr'>⚙️ 관리자 센터</div>", unsafe_allow_html=True)
@@ -863,7 +862,7 @@ elif M == "admin":
 
     adm = st.tabs(["🏆 대회 관리", "👥 참가자·대진", "📋 랭킹 관리", "💾 결과 반영"])
 
-    # 탭1: 대회 관리 (기존 코드 유지)
+    # 탭1: 대회 관리
     with adm[0]:
         st.markdown('<div class="sec">새 대회 생성</div>', unsafe_allow_html=True)
         with st.form("f_new_tour"):
@@ -929,7 +928,7 @@ elif M == "admin":
                         save_tours(tours)
                         st.rerun()
 
-    # 탭2: 참가자·대진 (기존 코드 유지)
+    # 탭2: 참가자·대진
     with adm[1]:
         tours = load_tours()
         active = [k for k,v in tours.items() if v.get("status") == "진행중"]
@@ -1048,7 +1047,7 @@ elif M == "admin":
             st.success("✅ 대진 생성 완료! (랭킹 높은 순 → A → B → C 그룹 순서로 배정됨)")
             st.rerun()
 
-    # 탭3: 랭킹 관리 (기존 코드 유지)
+    # 탭3: 랭킹 관리
     with adm[2]:
         st.markdown('<div class="sec">📁 엑셀 업로드 / 다운로드</div>', unsafe_allow_html=True)
 
@@ -1150,7 +1149,7 @@ elif M == "admin":
                     use_container_width=True,
                     key="btn_edit_dl")
 
-    # 탭4: 결과 반영 (기존 코드 유지)
+    # 탭4: 결과 반영
     with adm[3]:
         tours = load_tours()
         active = [k for k,v in tours.items() if v.get("status") == "진행중"]
