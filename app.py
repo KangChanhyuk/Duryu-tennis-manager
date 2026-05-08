@@ -10,21 +10,21 @@ from io import BytesIO
 st.set_page_config(page_title="두류 랭킹 관리 시스템", page_icon="🎾",
                    layout="wide", initial_sidebar_state="collapsed")
 
-# 강력한 가운데 정렬 CSS
+# UI 개선 CSS - 가독성 및 가운데 정렬 강화
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&display=swap');
 * {
     font-family: 'Noto Sans KR', sans-serif !important;
 }
-.block-container { padding: 0 0.6rem 2rem !important; max-width: 100% !important; }
+.block-container { padding: 0 0.8rem 2rem !important; max-width: 100% !important; }
 
 /* 네비게이션 바 */
 section.main [data-testid="stHorizontalBlock"]:first-of-type .stButton > button {
     background: transparent !important;
     color: rgba(255,255,255,0.72) !important;
     border: none !important; border-radius: 0 !important;
-    font-size: clamp(0.78rem, 2.2vw, 1rem) !important;
+    font-size: clamp(0.85rem, 2.2vw, 1.05rem) !important;
     font-weight: 700 !important;
     padding: 18px 6px 14px !important;
     line-height: 1.45 !important;
@@ -48,25 +48,27 @@ section.main [data-testid="stHorizontalBlock"]:first-of-type .stButton > button[
 .main-hdr {
     background: linear-gradient(135deg,#1D5B2E,#388E3C);
     color:#fff; padding:1rem 1.4rem; border-radius:14px;
-    margin-bottom:1rem; font-size:clamp(1.1rem,4vw,1.8rem);
+    margin-bottom:1rem; font-size:clamp(1.2rem,4vw,1.8rem);
     font-weight:900; text-align:center;
     box-shadow:0 6px 18px rgba(0,0,0,0.14);
 }
 .sec {
-    font-size:1.02rem; font-weight:900; color:#1D5B2E;
-    border-left:5px solid #66BB6A; padding-left:10px; margin:14px 0 8px;
+    font-size:1.1rem; font-weight:900; color:#1D5B2E;
+    border-left:5px solid #66BB6A; padding-left:12px; margin:16px 0 10px;
 }
 
 /* 탭 */
 button[data-baseweb="tab"] {
-    font-size:0.95rem!important; font-weight:700!important;
-    padding:10px 16px!important; border-radius:8px 8px 0 0!important;
+    font-size:1rem!important; font-weight:700!important;
+    padding:10px 20px!important; border-radius:8px 8px 0 0!important;
 }
 button[data-baseweb="tab"][aria-selected="true"] {
     background:linear-gradient(135deg,#1D5B2E,#388E3C)!important; color:#fff!important;
 }
 
-/* 강력한 가운데 정렬 */
+/* ================================================================
+   ★★★★★ 강력한 가운데 정렬 ★★★★★
+   ================================================================ */
 div[data-testid="stDataFrame"] table,
 div[data-testid="stDataEditor"] table,
 .stDataFrame table,
@@ -86,26 +88,40 @@ table th, table td,
 .dataframe th, .dataframe td {
     text-align: center !important;
     vertical-align: middle !important;
+    padding: 10px 8px !important;
 }
 
-/* 숫자 입력 필드 가운데 정렬 */
+/* 숫자 입력 필드 가운데 정렬 및 크기 증가 */
 input[type="number"] {
     text-align: center !important;
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
 }
 div[data-testid="stNumberInput"] input {
     text-align: center !important;
     font-weight: 700 !important;
+    font-size: 1.1rem !important;
+    padding: 8px !important;
 }
 
-/* 팀 도형 */
+/* 팀 도형 - 이름 크기 증가 */
 .team-box {
-    border-radius:12px; padding:9px 13px; font-weight:800;
-    font-size:clamp(.78rem, 2vw, 0.9rem); text-align:center;
-    margin:3px 0; box-shadow:0 3px 8px rgba(0,0,0,.12); line-height:1.3;
+    border-radius:14px; 
+    padding: 12px 16px !important; 
+    font-weight: 800 !important;
+    font-size: 1rem !important;
+    text-align: center;
+    margin: 5px 0;
+    box-shadow: 0 3px 10px rgba(0,0,0,.1);
+    line-height: 1.4;
+    min-height: 55px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 .team-box-small {
-    font-size: 0.75rem !important;
-    padding: 5px 8px !important;
+    font-size: 0.9rem !important;
+    padding: 8px 12px !important;
 }
 .tg{background:linear-gradient(135deg,#66BB6A,#43A047);color:#fff}
 .tb{background:linear-gradient(135deg,#42A5F5,#1E88E5);color:#fff}
@@ -114,12 +130,28 @@ div[data-testid="stNumberInput"] input {
 .tr{background:linear-gradient(135deg,#EF5350,#E53935);color:#fff}
 .tt{background:linear-gradient(135deg,#26A69A,#00897B);color:#fff}
 
-/* VS 원 */
+/* VS 원 - 크기 증가 */
 .vs-circle {
-    background:#FFB74D; color:#fff; border-radius:50%;
-    width:38px; height:38px; display:flex; align-items:center;
-    justify-content:center; font-weight:900; font-size:.8rem;
-    margin:0 auto; box-shadow:0 2px 8px rgba(255,183,77,.4);
+    background:#FFB74D; 
+    color:#fff; 
+    border-radius:50%;
+    width: 48px !important;
+    height: 48px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 1rem;
+    margin: 0 auto;
+    box-shadow: 0 3px 10px rgba(255,183,77,.4);
+}
+
+/* 경기 입력 행 간격 */
+.match-row {
+    margin-bottom: 20px;
+}
+.stHorizontalBlock {
+    gap: 15px !important;
 }
 
 /* 라운드 카드 */
@@ -127,45 +159,60 @@ div[data-testid="stNumberInput"] input {
     background: linear-gradient(135deg, #ffffff, #f8f9fa);
     border: 1px solid #e0e0e0;
     border-radius: 16px;
-    padding: 16px;
-    margin: 12px 0;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    padding: 20px;
+    margin: 15px 0;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
 }
 .round-title {
     background: linear-gradient(90deg,#1D5B2E,#43A047);
     color: white;
     border-radius: 12px;
-    padding: 8px 16px;
+    padding: 10px 20px;
     font-weight: 800;
     text-align: center;
-    margin-bottom: 16px;
-    font-size: 1rem;
+    margin-bottom: 20px;
+    font-size: 1.1rem;
 }
-.tour-card {
-    background:#F9FBF9; border:1.5px solid #C8E6C9; border-radius:12px;
-    padding:10px 14px; margin:6px 0;
+
+/* 구분선 */
+hr {
+    margin: 15px 0;
+    border-color: #ddd;
 }
+
+/* 참가자 태그 */
 .p-tag {
-    display:inline-block; background:#E8F5E9; border:1.5px solid #66BB6A;
-    border-radius:20px; padding:4px 12px; margin:3px 4px;
-    font-size:.88rem; font-weight:700; color:#1D5B2E;
+    display:inline-block; 
+    background:#E8F5E9; 
+    border:1.5px solid #66BB6A;
+    border-radius:25px; 
+    padding:6px 14px; 
+    margin:4px 6px;
+    font-size:0.95rem; 
+    font-weight:700; 
+    color:#1D5B2E;
 }
-.rank-card {
-    background:#fff; border:1.5px solid #C8E6C9; border-radius:14px;
-    padding:18px 20px; height:100%;
+
+/* 카드 스타일 */
+.tour-card, .rank-card {
+    background:#fff; 
+    border:1.5px solid #C8E6C9; 
+    border-radius:14px;
+    padding:12px 18px; 
+    margin:8px 0;
     box-shadow:0 3px 12px rgba(0,0,0,0.07);
 }
 .rank-card-title {
-    font-size:1rem; font-weight:900; color:#1D5B2E;
-    border-bottom:2px solid #A5D6A7; padding-bottom:8px; margin-bottom:14px;
+    font-size:1.05rem; 
+    font-weight:900; 
+    color:#1D5B2E;
+    border-bottom:2px solid #A5D6A7; 
+    padding-bottom:10px; 
+    margin-bottom:16px;
     text-align:center;
 }
-.matrix-card {
-    background: #fff;
-    border-radius: 12px;
-    padding: 12px;
-    border: 1px solid #C8E6C9;
-}
+
+/* 매트릭스 테이블 */
 .matrix-table {
     width: 100%;
     border-collapse: collapse;
@@ -173,9 +220,10 @@ div[data-testid="stNumberInput"] input {
     margin: 0 auto;
 }
 .matrix-table th, .matrix-table td {
-    padding: 8px;
+    padding: 10px;
     text-align: center;
     border: 1px solid #ddd;
+    font-size: 0.9rem;
 }
 .matrix-table th {
     background-color: #f5f5f5;
@@ -185,8 +233,23 @@ div[data-testid="stNumberInput"] input {
     background-color: #d0d0d0;
     color: #d0d0d0;
 }
-hr {
-    margin: 8px 0;
+
+/* 버튼 스타일 */
+.stButton > button {
+    border-radius: 10px !important;
+    font-weight: 700 !important;
+    font-size: 0.95rem !important;
+    padding: 0.5rem 1rem !important;
+    transition: all 0.2s ease !important;
+}
+.stButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* 데이터프레임 내부 글자 크기 */
+.dataframe td, .dataframe th {
+    font-size: 0.9rem !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -205,7 +268,7 @@ GHEX = ["#66BB6A","#42A5F5","#FFA726","#AB47BC","#EF5350","#26A69A"]
 GLBL = ["🟢","🔵","🟠","🟣","🔴","🩵"]
 
 # ══════════════════════════════════════════════════════════════
-# KDK 대진표 (1인 3게임) - 페어 단위
+# KDK 대진표 (1인 3게임)
 # ══════════════════════════════════════════════════════════════
 KDK_3G = {
     4: [(1,4,2,3), (1,3,2,4), (1,2,3,4)],
@@ -215,7 +278,7 @@ KDK_3G = {
 }
 
 # ══════════════════════════════════════════════════════════════
-# KDK 대진표 (1인 4게임) - 페어 단위
+# KDK 대진표 (1인 4게임)
 # ══════════════════════════════════════════════════════════════
 KDK_4G = {
     5: [(1,2,3,4), (1,3,2,5), (1,4,3,5), (1,5,2,4), (2,3,4,5)],
@@ -303,26 +366,25 @@ def group_stats_kdk(matches):
     """KDK 통계 계산 (개인 단위) - 페어로 경기하지만 승패는 개인에게 기록"""
     stats = {}
     for m in matches:
-        players1 = m["t1"]  # 페어 (2명)
-        players2 = m["t2"]  # 페어 (2명)
+        players1 = m["t1"]
+        players2 = m["t2"]
         
         for p in players1 + players2:
             if p not in stats:
                 stats[p] = {"승": 0, "패": 0, "득실": 0}
         
         s1, s2 = int(m["s1"]), int(m["s2"])
-        if s1 > s2:  # t1 승리
+        if s1 > s2:
             for p in players1:
                 stats[p]["승"] += 1
             for p in players2:
                 stats[p]["패"] += 1
-        elif s2 > s1:  # t2 승리
+        elif s2 > s1:
             for p in players2:
                 stats[p]["승"] += 1
             for p in players1:
                 stats[p]["패"] += 1
         
-        # 득실 계산 (개인별로 동일하게 적용)
         for p in players1:
             stats[p]["득실"] += (s1 - s2)
         for p in players2:
@@ -332,7 +394,7 @@ def group_stats_kdk(matches):
 def rank_pts(rank, mode):
     if mode == "고정페어":
         return {1:7, 2:5, 3:3}.get(rank, 1)
-    else:  # KDK 또는 단식
+    else:
         if rank <= 2:
             return 7
         elif rank <= 4:
@@ -343,7 +405,6 @@ def rank_pts(rank, mode):
             return 1
 
 def get_grade_kdk(rank):
-    """KDK 등급 반환 (1-2위 우승, 3-4위 준우승, 5-6위 3위, 나머지 참가)"""
     if rank <= 2:
         return "우승"
     elif rank <= 4:
@@ -357,7 +418,6 @@ def get_grade_kdk(rank):
 # 대진 생성 함수
 # ══════════════════════════════════════════════════════════════
 def make_kdk(players, games_per_person):
-    """KDK 대진 생성 - 페어(2:2) 단위로 경기, 순위는 개인별"""
     n = len(players)
     
     if games_per_person == 3:
@@ -372,7 +432,6 @@ def make_kdk(players, games_per_person):
     
     matches = []
     for a, b, c, d in bp:
-        # a,b가 한 팀, c,d가 한 팀 (2:2 더블즈)
         matches.append({
             "t1": [shuffled[a-1], shuffled[b-1]],
             "t2": [shuffled[c-1], shuffled[d-1]],
@@ -383,7 +442,6 @@ def make_kdk(players, games_per_person):
     return matches
 
 def make_fixed(players):
-    """고정페어 대진 생성 - 페어 고정, 페어 단위로 경기"""
     n = len(players)
     pairs = [(players[i], players[n-1-i]) for i in range(n//2)]
     ms = []
@@ -394,7 +452,6 @@ def make_fixed(players):
     return ms
 
 def make_singles(players):
-    """단식 대진 생성"""
     pl = players[:]
     random.shuffle(pl)
     ms = [(pl[i], pl[j]) for i in range(len(pl)) for j in range(i+1, len(pl))]
@@ -423,7 +480,7 @@ st.markdown("""
 <div style="background:#1D5B2E;padding:14px 16px 0 16px;
     border-radius:0 0 0 0;margin:0 -0.6rem 0 -0.6rem;">
   <div style="text-align:center;color:rgba(255,255,255,0.55);
-      font-size:0.78rem;letter-spacing:2px;font-weight:600;
+      font-size:0.85rem;letter-spacing:2px;font-weight:600;
       margin-bottom:6px">🎾 두류 테니스 클럽</div>
 </div>
 """, unsafe_allow_html=True)
@@ -493,16 +550,14 @@ elif M == "schedule":
             cls = GCLS[ti % len(GCLS)]
             
             is_fixed = (mode == "고정페어")
-            is_kdk = (mode == "KDK")
             
-            # 매트릭스용 라벨과 통계
             if is_fixed:
                 stats = group_stats_fixed(matches)
-                items = list(stats.keys())  # 팀 tuples
+                items = list(stats.keys())
                 display_name = "팀"
             else:
                 stats = group_stats_kdk(matches)
-                items = list(stats.keys())  # 개인 이름
+                items = list(stats.keys())
                 display_name = "선수"
             
             col_left, col_right = st.columns([3, 2], gap="medium")
@@ -510,13 +565,11 @@ elif M == "schedule":
             with col_left:
                 st.markdown("**📋 상대별 전적 매트릭스**")
                 if items:
-                    # 매트릭스용 라벨
                     if is_fixed:
                         lab = {t: " & ".join(list(t)) for t in items}
                     else:
                         lab = {p: p for p in items}
                     
-                    # KDK 매트릭스는 개인 vs 개인으로 표시 (더블즈 결과를 개인 매치로 변환)
                     mat = {lab[t]: {lab[o]: ("■" if t==o else "–") for o in items} for t in items}
                     for m in matches:
                         if is_fixed:
@@ -527,8 +580,6 @@ elif M == "schedule":
                                 mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
                                 mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
                         else:
-                            # KDK: 페어 간 경기 결과를 개인 매치로 표시하기 위해
-                            # 각 개인에게 동일한 점수 부여
                             players1 = m["t1"]
                             players2 = m["t2"]
                             s1, s2 = int(m["s1"]), int(m["s2"])
@@ -553,7 +604,7 @@ elif M == "schedule":
                             else:
                                 html_table += f'<td>{val}</td>'
                         html_table += '</tr>'
-                    html_table += '</tbody><table>'
+                    html_table += '</tbody></table>'
                     st.markdown(html_table, unsafe_allow_html=True)
                 else:
                     st.info("경기 데이터가 없습니다.")
@@ -561,7 +612,6 @@ elif M == "schedule":
             with col_right:
                 st.markdown(f"**🏅 현재 순위 ({display_name} 단위)**")
                 if items:
-                    # 승-득실 기준으로 정렬
                     ranked = sorted(items, key=lambda x: (-stats[x]["승"], -stats[x]["득실"]))
                     
                     rows = []
@@ -577,7 +627,6 @@ elif M == "schedule":
                                 "비고": grade
                             })
                         else:
-                            # KDK: 개인 단위 순위
                             grade = get_grade_kdk(i+1)
                             rows.append({
                                 "순위": ["🥇","🥈","🥉"][i] if i<3 else i+1,
@@ -596,22 +645,15 @@ elif M == "schedule":
             
             st.markdown(f"**🎾 경기 입력 (페어 단위)**")
             
-            name_size_class = "team-box-small" if not is_fixed and len(items) > 6 else ""
-            
             changed = False
             for mi, m in enumerate(matches):
-                if is_fixed:
-                    t1 = " & ".join(m["t1"])
-                    t2 = " & ".join(m["t2"])
-                else:
-                    # KDK: 페어 단위로 표시
-                    t1 = " & ".join(m["t1"])
-                    t2 = " & ".join(m["t2"])
+                t1 = " & ".join(m["t1"])
+                t2 = " & ".join(m["t2"])
                 
-                c1, c2, c3 = st.columns([4, 1, 4])
+                c1, c2, c3 = st.columns([4, 1, 4], gap="medium")
                 
                 with c1:
-                    st.markdown(f'<div class="team-box {cls} {name_size_class}" style="font-size:0.85rem;">{t1}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="team-box {cls}" style="font-size:1rem;">{t1}</div>', unsafe_allow_html=True)
                     s1 = st.number_input(f"점수_{mi}", 0, 50, int(m["s1"]),
                                          key=f"{tid}_{g}_{mi}_s1",
                                          label_visibility="collapsed",
@@ -621,7 +663,7 @@ elif M == "schedule":
                     st.markdown('<div class="vs-circle">VS</div>', unsafe_allow_html=True)
                 
                 with c3:
-                    st.markdown(f'<div class="team-box {cls} {name_size_class}" style="font-size:0.85rem;">{t2}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="team-box {cls}" style="font-size:1rem;">{t2}</div>', unsafe_allow_html=True)
                     s2 = st.number_input(f"점수_{mi}_2", 0, 50, int(m["s2"]),
                                          key=f"{tid}_{g}_{mi}_s2",
                                          label_visibility="collapsed",
@@ -672,7 +714,6 @@ elif M == "result":
         
         st.markdown(f'<div class="sec">{g} 그룹 ({mode})</div>', unsafe_allow_html=True)
         
-        # 매트릭스 표시
         if items:
             if is_fixed:
                 lab = {t: " & ".join(list(t)) for t in items}
@@ -750,12 +791,8 @@ elif M == "result":
         with st.expander(f"📋 {g} 전체 경기 결과 상세보기"):
             mrows = []
             for m in matches:
-                if is_fixed:
-                    t1 = " & ".join(m["t1"])
-                    t2 = " & ".join(m["t2"])
-                else:
-                    t1 = " & ".join(m["t1"])
-                    t2 = " & ".join(m["t2"])
+                t1 = " & ".join(m["t1"])
+                t2 = " & ".join(m["t2"])
                 s1, s2 = int(m["s1"]), int(m["s2"])
                 result = "🏆 " + t1 + " 승" if s1 > s2 else "🏆 " + t2 + " 승" if s2 > s1 else "🤝 무승부"
                 mrows.append({
@@ -806,7 +843,6 @@ elif M == "archive":
         
         st.markdown(f'<div class="sec">{g} 그룹 ({mode})</div>', unsafe_allow_html=True)
         
-        # 매트릭스 표시
         if items:
             if is_fixed:
                 lab = {t: " & ".join(list(t)) for t in items}
@@ -843,7 +879,7 @@ elif M == "archive":
                 for col in mdf.columns:
                     val = row[col]
                     if val == '■':
-                        html_table += f'<td class="matrix-grey">{val}</tr>'
+                        html_table += f'<td class="matrix-grey">{val}</td>'
                     else:
                         html_table += f'<td>{val}</td>'
                 html_table += '</tr>'
@@ -881,12 +917,8 @@ elif M == "archive":
         with st.expander(f"📋 {g} 전체 경기 결과"):
             mrows = []
             for m in matches:
-                if is_fixed:
-                    t1 = " & ".join(m["t1"])
-                    t2 = " & ".join(m["t2"])
-                else:
-                    t1 = " & ".join(m["t1"])
-                    t2 = " & ".join(m["t2"])
+                t1 = " & ".join(m["t1"])
+                t2 = " & ".join(m["t2"])
                 s1, s2 = int(m["s1"]), int(m["s2"])
                 result = "🏆 " + t1 + " 승" if s1 > s2 else "🏆 " + t2 + " 승" if s2 > s1 else "🤝 무승부"
                 mrows.append({
@@ -899,7 +931,7 @@ elif M == "archive":
             st.dataframe(pd.DataFrame(mrows), use_container_width=True, hide_index=True)
 
 # ══════════════════════════════════════════════════════════════
-# 5. ⚙️ 관리자 (이전과 동일 - 간소화하여 표시)
+# 5. ⚙️ 관리자 (간소화)
 # ══════════════════════════════════════════════════════════════
 elif M == "admin":
     st.markdown("<div class='main-hdr'>⚙️ 관리자 센터</div>", unsafe_allow_html=True)
@@ -944,7 +976,6 @@ elif M == "admin":
                         save_tours(tours)
                         st.success(f"🎉 '{tn}' 대회 생성!")
                         st.rerun()
-
         st.divider()
         st.markdown('<div class="sec">대회 목록 (수정·삭제)</div>', unsafe_allow_html=True)
         tours = load_tours()
@@ -957,7 +988,7 @@ elif M == "admin":
                 st.markdown(f"""
                 <div class="tour-card">
                   <span style="font-weight:900">{tv['title']}</span>&nbsp;
-                  <span style="font-size:.83rem;color:#555">📅{tv.get('date','')} 📍{tv.get('place','')} 코트{tv.get('courts',2)}면</span>
+                  <span style="font-size:.9rem;color:#555">📅{tv.get('date','')} 📍{tv.get('place','')} 코트{tv.get('courts',2)}면</span>
                   <span style="color:{sc};font-weight:800;margin-left:8px">[{tv.get('status','')}]</span>
                 </div>
                 """, unsafe_allow_html=True)
