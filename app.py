@@ -104,6 +104,18 @@ div[data-testid="stNumberInput"] input {
     padding: 8px !important;
 }
 
+/* 텍스트 입력 필드 가운데 정렬 */
+input[type="text"], textarea {
+    text-align: center !important;
+}
+
+/* 경기 입력 행 전체 가운데 정렬 */
+div[data-testid="column"] {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
 /* 팀 도형 - 이름 크기 증가 */
 .team-box {
     border-radius:14px; 
@@ -118,10 +130,7 @@ div[data-testid="stNumberInput"] input {
     display: flex;
     align-items: center;
     justify-content: center;
-}
-.team-box-small {
-    font-size: 0.9rem !important;
-    padding: 8px 12px !important;
+    width: 100%;
 }
 .tg{background:linear-gradient(135deg,#66BB6A,#43A047);color:#fff}
 .tb{background:linear-gradient(135deg,#42A5F5,#1E88E5);color:#fff}
@@ -129,6 +138,11 @@ div[data-testid="stNumberInput"] input {
 .tp{background:linear-gradient(135deg,#AB47BC,#8E24AA);color:#fff}
 .tr{background:linear-gradient(135deg,#EF5350,#E53935);color:#fff}
 .tt{background:linear-gradient(135deg,#26A69A,#00897B);color:#fff}
+
+/* 경기별 색상 클래스 */
+.match-color-0 { background: linear-gradient(135deg,#66BB6A,#43A047) !important; color:#fff; }
+.match-color-1 { background: linear-gradient(135deg,#42A5F5,#1E88E5) !important; color:#fff; }
+.match-color-2 { background: linear-gradient(135deg,#FFA726,#FB8C00) !important; color:#fff; }
 
 /* VS 원 - 크기 증가 */
 .vs-circle {
@@ -144,14 +158,6 @@ div[data-testid="stNumberInput"] input {
     font-size: 1rem;
     margin: 0 auto;
     box-shadow: 0 3px 10px rgba(255,183,77,.4);
-}
-
-/* 경기 입력 행 간격 */
-.match-row {
-    margin-bottom: 20px;
-}
-.stHorizontalBlock {
-    gap: 15px !important;
 }
 
 /* 라운드 카드 */
@@ -268,7 +274,7 @@ GHEX = ["#66BB6A","#42A5F5","#FFA726","#AB47BC","#EF5350","#26A69A"]
 GLBL = ["🟢","🔵","🟠","🟣","🔴","🩵"]
 
 # ══════════════════════════════════════════════════════════════
-# KDK 대진표 (1인 3게임)
+# KDK 대진표 (1인 3게임) - 번호 기반
 # ══════════════════════════════════════════════════════════════
 KDK_3G = {
     4: [(1,4,2,3), (1,3,2,4), (1,2,3,4)],
@@ -278,7 +284,7 @@ KDK_3G = {
 }
 
 # ══════════════════════════════════════════════════════════════
-# KDK 대진표 (1인 4게임)
+# KDK 대진표 (1인 4게임) - 번호 기반
 # ══════════════════════════════════════════════════════════════
 KDK_4G = {
     5: [(1,2,3,4), (1,3,2,5), (1,4,3,5), (1,5,2,4), (2,3,4,5)],
@@ -363,7 +369,7 @@ def group_stats_fixed(matches):
     return stats
 
 def group_stats_kdk(matches):
-    """KDK 통계 계산 (개인 단위) - 페어로 경기하지만 승패는 개인에게 기록"""
+    """KDK 통계 계산 (개인 단위)"""
     stats = {}
     for m in matches:
         players1 = m["t1"]
@@ -415,9 +421,10 @@ def get_grade_kdk(rank):
         return "참가"
 
 # ══════════════════════════════════════════════════════════════
-# 대진 생성 함수
+# KDK 대진 생성 함수 (번호 기반)
 # ══════════════════════════════════════════════════════════════
 def make_kdk(players, games_per_person):
+    """KDK 대진 생성 - 번호를 부여하여 대진표 적용"""
     n = len(players)
     
     if games_per_person == 3:
@@ -428,13 +435,17 @@ def make_kdk(players, games_per_person):
     if not bp:
         return None
     
+    # 참가자 랜덤 배치 후 번호 부여 (1번부터 n번까지)
     shuffled = random.sample(players, n)
+    
+    # 번호별 참가자 매핑
+    player_by_number = {i+1: shuffled[i] for i in range(n)}
     
     matches = []
     for a, b, c, d in bp:
         matches.append({
-            "t1": [shuffled[a-1], shuffled[b-1]],
-            "t2": [shuffled[c-1], shuffled[d-1]],
+            "t1": [player_by_number[a], player_by_number[b]],
+            "t2": [player_by_number[c], player_by_number[d]],
             "s1": 0,
             "s2": 0
         })
@@ -643,17 +654,22 @@ elif M == "schedule":
             
             st.divider()
             
-            st.markdown(f"**🎾 경기 입력 (페어 단위)**")
+            st.markdown(f"**🎾 경기 입력**")
             
             changed = False
+            # 경기별로 3가지 색상 순환 적용
             for mi, m in enumerate(matches):
                 t1 = " & ".join(m["t1"])
                 t2 = " & ".join(m["t2"])
                 
+                # 경기별 색상 (0,1,2 순환)
+                color_idx = mi % 3
+                color_class = ["match-color-0", "match-color-1", "match-color-2"][color_idx]
+                
                 c1, c2, c3 = st.columns([4, 1, 4], gap="medium")
                 
                 with c1:
-                    st.markdown(f'<div class="team-box {cls}" style="font-size:1rem;">{t1}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="team-box {color_class}" style="font-size:1rem;">{t1}</div>', unsafe_allow_html=True)
                     s1 = st.number_input(f"점수_{mi}", 0, 50, int(m["s1"]),
                                          key=f"{tid}_{g}_{mi}_s1",
                                          label_visibility="collapsed",
@@ -663,7 +679,7 @@ elif M == "schedule":
                     st.markdown('<div class="vs-circle">VS</div>', unsafe_allow_html=True)
                 
                 with c3:
-                    st.markdown(f'<div class="team-box {cls}" style="font-size:1rem;">{t2}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="team-box {color_class}" style="font-size:1rem;">{t2}</div>', unsafe_allow_html=True)
                     s2 = st.number_input(f"점수_{mi}_2", 0, 50, int(m["s2"]),
                                          key=f"{tid}_{g}_{mi}_s2",
                                          label_visibility="collapsed",
@@ -745,7 +761,7 @@ elif M == "result":
             html_table += '<thead><tr><th></th>'
             for col in mdf.columns:
                 html_table += f'<th>{col}</th>'
-            html_table += '</tr></thead><tbody>'
+            html_table += '</table></thead><tbody>'
             for idx, row in mdf.iterrows():
                 html_table += f'<tr><td><strong>{idx}</strong></td>'
                 for col in mdf.columns:
@@ -754,7 +770,7 @@ elif M == "result":
                         html_table += f'<td class="matrix-grey">{val}</td>'
                     else:
                         html_table += f'<td>{val}</td>'
-                html_table += '</tr>'
+                html_table += '</table>'
             html_table += '</tbody></table>'
             st.markdown(html_table, unsafe_allow_html=True)
         
@@ -931,7 +947,7 @@ elif M == "archive":
             st.dataframe(pd.DataFrame(mrows), use_container_width=True, hide_index=True)
 
 # ══════════════════════════════════════════════════════════════
-# 5. ⚙️ 관리자 (간소화)
+# 5. ⚙️ 관리자
 # ══════════════════════════════════════════════════════════════
 elif M == "admin":
     st.markdown("<div class='main-hdr'>⚙️ 관리자 센터</div>", unsafe_allow_html=True)
