@@ -218,6 +218,44 @@ hr {
     text-align:center;
 }
 
+/* 매트릭스 테이블 */
+.matrix-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: center;
+    margin: 0 auto;
+}
+.matrix-table th, .matrix-table td {
+    padding: 10px;
+    text-align: center;
+    border: 1px solid #ddd;
+    font-size: 0.9rem;
+}
+.matrix-table th {
+    background-color: #f5f5f5;
+    font-weight: 700;
+}
+.matrix-grey {
+    background-color: #d0d0d0;
+    color: #d0d0d0;
+}
+
+/* KDK 대진표 스타일 */
+.kdk-bracket {
+    background: #f5f5f5;
+    border-radius: 12px;
+    padding: 15px;
+    margin: 10px 0;
+    font-family: monospace;
+    font-size: 0.9rem;
+    overflow-x: auto;
+}
+.kdk-bracket pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: keep-all;
+}
+
 /* 버튼 스타일 */
 .stButton > button {
     border-radius: 10px !important;
@@ -252,7 +290,7 @@ GHEX = ["#66BB6A","#42A5F5","#FFA726","#AB47BC","#EF5350","#26A69A"]
 GLBL = ["🟢","🔵","🟠","🟣","🔴","🩵"]
 
 # ══════════════════════════════════════════════════════════════
-# KDK 대진표 (1인 3게임) - 정확한 대진표
+# KDK 대진표 (1인 3게임)
 # ══════════════════════════════════════════════════════════════
 # 형식: (a,b,c,d) = (a,b)팀 vs (c,d)팀
 KDK_3G = {
@@ -263,9 +301,8 @@ KDK_3G = {
 }
 
 # ══════════════════════════════════════════════════════════════
-# KDK 대진표 (1인 4게임) - 정확한 대진표
+# KDK 대진표 (1인 4게임)
 # ══════════════════════════════════════════════════════════════
-# 형식: (a,b,c,d) = (a,b)팀 vs (c,d)팀
 KDK_4G = {
     5: [(1,2,3,4), (1,3,2,5), (1,4,3,5), (1,5,2,4), (2,3,4,5)],
     6: [(1,3,2,4), (1,5,4,6), (2,3,5,6), (1,4,3,5), (2,6,3,4), (1,6,2,5)],
@@ -401,7 +438,7 @@ def get_grade_kdk(rank):
         return "참가"
 
 # ══════════════════════════════════════════════════════════════
-# KDK 대진 생성 함수 (정확한 대진표 적용)
+# KDK 대진 생성 함수 (번호 기반)
 # ══════════════════════════════════════════════════════════════
 def make_kdk(players, games_per_person):
     """KDK 대진 생성 - 정확한 대진표 적용, 페어 단위"""
@@ -418,10 +455,11 @@ def make_kdk(players, games_per_person):
     # 참가자 랜덤 배치 후 번호 부여
     shuffled = random.sample(players, n)
     player_by_number = {i+1: shuffled[i] for i in range(n)}
+    # 번호 정보 저장 (매트릭스 표시용)
+    player_with_number = {p: i+1 for i, p in enumerate(shuffled)}
     
     matches = []
     for a, b, c, d in bp:
-        # (a,b)가 한 팀, (c,d)가 한 팀 (2:2 더블즈)
         matches.append({
             "t1": [player_by_number[a], player_by_number[b]],
             "t2": [player_by_number[c], player_by_number[d]],
@@ -429,7 +467,7 @@ def make_kdk(players, games_per_person):
             "s2": 0
         })
     
-    return matches
+    return matches, player_with_number
 
 def make_fixed(players):
     n = len(players)
@@ -439,14 +477,44 @@ def make_fixed(players):
         for j in range(i+1, len(pairs)):
             ms.append({"t1": list(pairs[i]), "t2": list(pairs[j]), "s1": 0, "s2": 0})
     random.shuffle(ms)
-    return ms
+    return ms, None
 
 def make_singles(players):
     pl = players[:]
     random.shuffle(pl)
     ms = [(pl[i], pl[j]) for i in range(len(pl)) for j in range(i+1, len(pl))]
     random.shuffle(ms)
-    return [{"t1": [a], "t2": [b], "s1": 0, "s2": 0} for a, b in ms]
+    return [{"t1": [a], "t2": [b], "s1": 0, "s2": 0} for a, b in ms], None
+
+# ══════════════════════════════════════════════════════════════
+# KDK 대진표 표시 함수 (사진 형식)
+# ══════════════════════════════════════════════════════════════
+def display_kdk_bracket(n, games_per_person, player_with_number):
+    """KDK 대진표를 표 형식으로 표시"""
+    if games_per_person == 3:
+        bracket = KDK_3G.get(n)
+        title = f"KDK (한울방식) 1인 3게임 기준 - {n}명"
+    else:
+        bracket = KDK_4G.get(n)
+        title = f"KDK (한울방식) 1인 4게임 기준 - {n}명"
+    
+    if not bracket:
+        return
+    
+    # 번호 -> 이름 매핑
+    number_to_name = {v: k for k, v in player_with_number.items()}
+    
+    html = f'<div class="kdk-bracket"><strong>📋 {title}</strong><br><br>'
+    html += '<table style="width:100%; border-collapse:collapse; text-align:center;">'
+    html += '<thead><tr><th>경기 순서</th><th>대진</th><th>참가자</th></tr></thead><tbody>'
+    
+    for idx, (a, b, c, d) in enumerate(bracket):
+        team1_name = f"{number_to_name.get(a, a)}({a}) & {number_to_name.get(b, b)}({b})"
+        team2_name = f"{number_to_name.get(c, c)}({c}) & {number_to_name.get(d, d)}({d})"
+        html += f'<tr><td>{idx+1}</td><td>{a}{b} : {c}{d}</td><td>{team1_name} vs {team2_name}</td></tr>'
+    
+    html += '</tbody></table></div>'
+    st.markdown(html, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
 # 세션 초기화
@@ -538,6 +606,7 @@ elif M == "schedule":
             matches = ginfo["matches"]
             mode = ginfo["mode"]
             cls = GCLS[ti % len(GCLS)]
+            player_with_number = ginfo.get("player_with_number", {})
             
             is_fixed = (mode == "고정페어")
             is_kdk = (mode == "KDK")
@@ -552,98 +621,103 @@ elif M == "schedule":
                 rank_items = list(stats.keys())  # 개인 이름
                 rank_display_name = "선수"
             
-            col_left, col_right = st.columns([3, 2], gap="medium")
-            
-            with col_left:
-                st.markdown("**📋 상대별 전적 매트릭스**")
-                if matches:
-                    # 매트릭스용 라벨
+            # 상대별 전적 매트릭스 표시
+            st.markdown("**📋 상대별 전적 매트릭스**")
+            if matches:
+                if is_fixed:
+                    all_teams = list(set([tuple(m["t1"]) for m in matches] + [tuple(m["t2"]) for m in matches]))
+                    lab = {t: " & ".join(list(t)) for t in all_teams}
+                else:
+                    # KDK: 개인 vs 개인으로 표시 (이름 옆에 번호 표시)
+                    all_players = list(set([p for m in matches for p in m["t1"] + m["t2"]]))
+                    lab = {p: f"{p}({player_with_number.get(p, '?')})" for p in all_players}
+                
+                mat = {lab[t]: {lab[o]: ("■" if t==o else "–") for o in lab.keys()} for t in lab.keys()}
+                for m in matches:
                     if is_fixed:
-                        all_teams = list(set([tuple(m["t1"]) for m in matches] + [tuple(m["t2"]) for m in matches]))
-                        lab = {t: " & ".join(list(t)) for t in all_teams}
+                        t1 = tuple(m["t1"])
+                        t2 = tuple(m["t2"])
                     else:
-                        # KDK: 개인 vs 개인으로 표시
-                        all_players = list(set([p for m in matches for p in m["t1"] + m["t2"]]))
-                        lab = {p: p for p in all_players}
-                    
-                    mat = {lab[t]: {lab[o]: ("■" if t==o else "–") for o in lab.keys()} for t in lab.keys()}
-                    for m in matches:
+                        players1 = m["t1"]
+                        players2 = m["t2"]
+                    s1, s2 = int(m["s1"]), int(m["s2"])
+                    if s1 > 0 or s2 > 0:
                         if is_fixed:
-                            t1 = tuple(m["t1"])
-                            t2 = tuple(m["t2"])
+                            mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
+                            mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
                         else:
-                            players1 = m["t1"]
-                            players2 = m["t2"]
-                        s1, s2 = int(m["s1"]), int(m["s2"])
-                        if s1 > 0 or s2 > 0:
-                            if is_fixed:
-                                mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
-                                mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
-                            else:
-                                for p1 in players1:
-                                    for p2 in players2:
-                                        mat[p1][p2] = f"{s1}:{s2}"
-                                        mat[p2][p1] = f"{s2}:{s1}"
-                    mdf = pd.DataFrame(mat).T
-                    
-                    html_table = '<table class="matrix-table">'
-                    html_table += '<thead><tr><th></th>'
+                            for p1 in players1:
+                                for p2 in players2:
+                                    mat[lab[p1]][lab[p2]] = f"{s1}:{s2}"
+                                    mat[lab[p2]][lab[p1]] = f"{s2}:{s1}"
+                mdf = pd.DataFrame(mat).T
+                
+                html_table = '<table class="matrix-table">'
+                html_table += '<thead><tr><th></th>'
+                for col in mdf.columns:
+                    html_table += f'<th>{col}</th>'
+                html_table += '<tr></thead><tbody>'
+                for idx, row in mdf.iterrows():
+                    html_table += f'<tr><th><strong>{idx}</strong></th>'
                     for col in mdf.columns:
-                        html_table += f'<th>{col}</th>'
-                    html_table += '</tr></thead><tbody>'
-                    for idx, row in mdf.iterrows():
-                        html_table += f'</table><td><strong>{idx}</strong></td>'
-                        for col in mdf.columns:
-                            val = row[col]
-                            if val == '■':
-                                html_table += f'<td class="matrix-grey">{val}</td>'
-                            else:
-                                html_table += f'<td>{val}</td>'
-                        html_table += '</tr>'
-                    html_table += '</tbody></table>'
-                    st.markdown(html_table, unsafe_allow_html=True)
-                else:
-                    st.info("경기 데이터가 없습니다.")
-            
-            with col_right:
-                st.markdown(f"**🏅 현재 순위 ({rank_display_name} 단위)**")
-                if rank_items:
-                    ranked = sorted(rank_items, key=lambda x: (-stats[x]["승"], -stats[x]["득실"]))
-                    
-                    rows = []
-                    for i, item in enumerate(ranked):
-                        if is_fixed:
-                            grade = ["우승","준우승","3위"][i] if i<3 else "참가"
-                            rows.append({
-                                "순위": ["🥇","🥈","🥉"][i] if i<3 else i+1,
-                                "팀": " & ".join(list(item)),
-                                "승": stats[item]["승"],
-                                "패": stats[item]["패"],
-                                "득실": f'{stats[item]["득실"]:+d}',
-                                "비고": grade
-                            })
+                        val = row[col]
+                        if val == '■':
+                            html_table += f'<td class="matrix-grey">{val}</td>'
                         else:
-                            grade = get_grade_kdk(i+1)
-                            rows.append({
-                                "순위": ["🥇","🥈","🥉"][i] if i<3 else i+1,
-                                "선수": item,
-                                "승": stats[item]["승"],
-                                "패": stats[item]["패"],
-                                "득실": f'{stats[item]["득실"]:+d}',
-                                "비고": grade
-                            })
-                    rdf = pd.DataFrame(rows)
-                    st.dataframe(rdf, use_container_width=True, hide_index=True)
-                else:
-                    st.info("순위 정보가 없습니다.")
+                            html_table += f'<td>{val}</td>'
+                    html_table += '</tr>'
+                html_table += '</tbody></table>'
+                st.markdown(html_table, unsafe_allow_html=True)
+            else:
+                st.info("경기 데이터가 없습니다.")
+            
+            # KDK 대진표 표시 (사진 형식)
+            if is_kdk and player_with_number:
+                st.divider()
+                n = len(player_with_number)
+                gc = ginfo.get("games", 3)
+                display_kdk_bracket(n, gc, player_with_number)
+            
+            # 현재 순위 표시
+            st.divider()
+            st.markdown(f"**🏅 현재 순위 ({rank_display_name} 단위)**")
+            if rank_items:
+                ranked = sorted(rank_items, key=lambda x: (-stats[x]["승"], -stats[x]["득실"]))
+                
+                rows = []
+                for i, item in enumerate(ranked):
+                    if is_fixed:
+                        grade = ["우승","준우승","3위"][i] if i<3 else "참가"
+                        rows.append({
+                            "순위": ["🥇","🥈","🥉"][i] if i<3 else i+1,
+                            "팀": " & ".join(list(item)),
+                            "승": stats[item]["승"],
+                            "패": stats[item]["패"],
+                            "득실": f'{stats[item]["득실"]:+d}',
+                            "비고": grade
+                        })
+                    else:
+                        grade = get_grade_kdk(i+1)
+                        rows.append({
+                            "순위": ["🥇","🥈","🥉"][i] if i<3 else i+1,
+                            "선수": item,
+                            "승": stats[item]["승"],
+                            "패": stats[item]["패"],
+                            "득실": f'{stats[item]["득실"]:+d}',
+                            "비고": grade
+                        })
+                rdf = pd.DataFrame(rows)
+                st.dataframe(rdf, use_container_width=True, hide_index=True)
+            else:
+                st.info("순위 정보가 없습니다.")
             
             st.divider()
             
+            # 경기 입력
             st.markdown(f"**🎾 경기 입력 (페어 단위)**")
             
             changed = False
             for mi, m in enumerate(matches):
-                # KDK든 고정페어든 모두 페어 단위로 표시
                 t1 = " & ".join(m["t1"])
                 t2 = " & ".join(m["t2"])
                 
@@ -698,8 +772,10 @@ elif M == "result":
     for g, ginfo in tour["groups"].items():
         mode = ginfo["mode"]
         matches = ginfo["matches"]
+        player_with_number = ginfo.get("player_with_number", {})
         
         is_fixed = (mode == "고정페어")
+        is_kdk = (mode == "KDK")
         
         # 순위 계산
         if is_fixed:
@@ -714,6 +790,13 @@ elif M == "result":
             display_name = "선수"
         
         st.markdown(f'<div class="sec">{g} 그룹 ({mode})</div>', unsafe_allow_html=True)
+        
+        # KDK 대진표 표시 (사진 형식)
+        if is_kdk and player_with_number:
+            n = len(player_with_number)
+            gc = ginfo.get("games", 3)
+            display_kdk_bracket(n, gc, player_with_number)
+            st.divider()
         
         # 최종 순위
         st.markdown(f"**🏆 최종 순위 ({display_name} 단위)**")
@@ -786,8 +869,10 @@ elif M == "archive":
     for g, ginfo in tour["groups"].items():
         mode = ginfo["mode"]
         matches = ginfo["matches"]
+        player_with_number = ginfo.get("player_with_number", {})
         
         is_fixed = (mode == "고정페어")
+        is_kdk = (mode == "KDK")
         
         if is_fixed:
             stats = group_stats_fixed(matches)
@@ -801,6 +886,13 @@ elif M == "archive":
             display_name = "선수"
         
         st.markdown(f'<div class="sec">{g} 그룹 ({mode})</div>', unsafe_allow_html=True)
+        
+        # KDK 대진표 표시
+        if is_kdk and player_with_number:
+            n = len(player_with_number)
+            gc = ginfo.get("games", 3)
+            display_kdk_bracket(n, gc, player_with_number)
+            st.divider()
         
         st.markdown(f"**🏆 최종 순위 ({display_name} 단위)**")
         rows = []
@@ -847,7 +939,7 @@ elif M == "archive":
             st.dataframe(pd.DataFrame(mrows), use_container_width=True, hide_index=True)
 
 # ══════════════════════════════════════════════════════════════
-# 5. ⚙️ 관리자 (기존 코드 유지 - 간소화하여 표시)
+# 5. ⚙️ 관리자 (대회 관리, 참가자·대진, 랭킹 관리, 결과 반영)
 # ══════════════════════════════════════════════════════════════
 elif M == "admin":
     st.markdown("<div class='main-hdr'>⚙️ 관리자 센터</div>", unsafe_allow_html=True)
@@ -1033,15 +1125,18 @@ elif M == "admin":
                 ptr += sz
                 st.info(f"📌 {gn} 그룹: {', '.join(gp[:3])}{'...' if len(gp)>3 else ''} ({len(gp)}명)")
                 if md == "고정페어":
-                    ms = make_fixed(gp)
+                    ms, _ = make_fixed(gp)
+                    player_with_number = {}
                 elif md == "KDK":
-                    ms = make_kdk(gp, gc)
+                    ms, player_with_number = make_kdk(gp, gc)
                     if not ms:
                         st.warning(f"그룹 {gn}: {gc}게임 기준 {len(gp)}명은 지원하지 않습니다. 단식 리그로 대체합니다.")
-                        ms = make_singles(gp)
+                        ms, _ = make_singles(gp)
+                        player_with_number = {}
                 else:
-                    ms = make_singles(gp)
-                new_groups[gn] = {"players": gp, "mode": md, "games": gc, "matches": ms}
+                    ms, _ = make_singles(gp)
+                    player_with_number = {}
+                new_groups[gn] = {"players": gp, "mode": md, "games": gc, "matches": ms, "player_with_number": player_with_number}
             tours[sel_tid]["groups"] = new_groups
             save_tours(tours)
             st.success("✅ 대진 생성 완료! (랭킹 높은 순 → A → B → C 그룹 순서로 배정됨)")
