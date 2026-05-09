@@ -76,7 +76,6 @@ button[data-baseweb="tab"][aria-selected="true"] {
     background: linear-gradient(135deg,#1D5B2E,#388E3C) !important;
 }
 
-/* 테이블 */
 div[data-testid="stDataFrame"] table,
 div[data-testid="stDataEditor"] table {
     width: 100% !important;
@@ -94,7 +93,6 @@ div[data-testid="stDataFrame"] {
     overflow-x: auto !important;
 }
 
-/* 입력 필드 */
 input[type="number"] {
     text-align: center !important;
     font-size: 0.9rem !important;
@@ -109,7 +107,6 @@ div[data-testid="stNumberInput"] input {
     min-height: 40px !important;
 }
 
-/* 팀 도형 */
 .team-box {
     border-radius: 10px;
     padding: 8px 10px !important;
@@ -394,7 +391,7 @@ def display_kdk_bracket(n, games_per_person, player_with_number):
     for idx, (a, b, c, d) in enumerate(bracket):
         team1 = f"{number_to_name.get(a, a)}({a})&{number_to_name.get(b, b)}({b})"
         team2 = f"{number_to_name.get(c, c)}({c})&{number_to_name.get(d, d)}({d})"
-        html += f'<tr><tr>{idx+1}</td><td>{team1} vs {team2}</td></tr>'
+        html += f'叉戟-th>{idx+1}叉戟-th>{team1} vs {team2}叉戟-th>'
     html += '</tbody></table></div>'
     st.markdown(html, unsafe_allow_html=True)
 
@@ -516,7 +513,7 @@ elif M == "schedule":
                     html += f'<th>{col}</th>'
                 html += '</tr></thead><tbody>'
                 for idx, row in mdf.iterrows():
-                    html += f'<tr><th>{idx}</th>'
+                    html += f'叉戟<th>{idx}</th>'
                     for col in mdf.columns:
                         val = row[col]
                         if val == '■':
@@ -713,7 +710,7 @@ elif M == "admin":
         st.stop()
     st.success("관리자 모드")
 
-    adm = st.tabs(["🏆 대회", "👥 참가자", "📋 랭킹", "💾 반영"])
+    adm = st.tabs(["🏆 대회", "👥 참가자·대진", "📋 랭킹", "💾 반영"])
 
     # 대회 관리
     with adm[0]:
@@ -755,7 +752,8 @@ elif M == "admin":
                         st.success("상태 수정됨!")
                         st.rerun()
                 
-                if st.button(f"✏️ {tv['title']} 상세 수정", key=f"detail_edit_{tid2}", use_container_width=True):
+                # 상세 수정 버튼
+                if st.button(f"✏️ 상세 수정", key=f"detail_edit_{tid2}", use_container_width=True):
                     st.session_state.edit_tour_id = tid2
                     st.rerun()
                 
@@ -771,6 +769,7 @@ elif M == "admin":
             edit_tour = tours[edit_id]
             st.markdown(f'<div class="sec">✏️ "{edit_tour["title"]}" 상세 수정</div>', unsafe_allow_html=True)
             
+            # 기본 정보 수정
             new_title = st.text_input("대회명", value=edit_tour["title"], key="edit_title")
             new_date = st.date_input("날짜", value=pd.to_datetime(edit_tour.get("date", date.today())).date() if edit_tour.get("date") else date.today(), key="edit_date")
             new_place = st.text_input("장소", value=edit_tour.get("place", ""), key="edit_place")
@@ -792,8 +791,74 @@ elif M == "admin":
                     st.session_state.edit_tour_id = None
                     st.rerun()
             st.divider()
+            
+            # 그룹 설정 수정
+            st.markdown('<div class="sec">🎲 그룹 설정 수정</div>', unsafe_allow_html=True)
+            st.caption("※ 그룹 설정을 변경하면 기존 대진이 초기화됩니다.")
+            
+            # 현재 그룹 정보 가져오기
+            current_groups = edit_tour.get("groups", {})
+            current_group_names = list(current_groups.keys())
+            
+            col_info1, col_info2 = st.columns(2)
+            with col_info1:
+                gcnt = st.number_input("그룹 수", 1, 6, value=max(1, len(current_group_names)), key="edit_gcnt")
+            with col_info2:
+                st.write(f"현재 {len(current_group_names)}개 그룹")
+            
+            gcfg = {}
+            group_names = [f"{chr(65+i)}그룹" for i in range(gcnt)]
+            for i, gn in enumerate(group_names):
+                # 기존 설정 가져오기
+                existing = current_groups.get(gn, {})
+                st.markdown(f"**{gn}**")
+                col_a, col_b, col_c, col_d = st.columns(4)
+                with col_a:
+                    default_sz = len(existing.get("players", [])) if existing else 8
+                    sz = st.number_input("인원", 2, 30, value=default_sz, key=f"edit_sz_{i}")
+                with col_b:
+                    default_md = existing.get("mode", "고정페어")
+                    md = st.selectbox("방식", ["고정페어","KDK","단식"], index=["고정페어","KDK","단식"].index(default_md), key=f"edit_md_{i}")
+                with col_c:
+                    default_gc = existing.get("games", 4)
+                    gc = st.selectbox("게임수", [3,4,5], index=[3,4,5].index(default_gc), key=f"edit_gc_{i}")
+                with col_d:
+                    current_count = len(existing.get("players", []))
+                    st.write(f"현재 {current_count}명")
+                gcfg[gn] = (sz, md, gc)
+            
+            total = sum(c[0] for c in gcfg.values())
+            all_players = edit_tour.get("players", [])
+            if total == len(all_players):
+                st.success(f"✅ 참가자 {len(all_players)}명 / 배정 {total}명")
+            else:
+                st.warning(f"⚠️ 참가자 {len(all_players)}명 / 배정 {total}명 (차이 {len(all_players)-total:+d}명)")
+            
+            if st.button("🎲 그룹 설정 적용 및 대진 재생성", type="primary", use_container_width=True):
+                players_sorted = all_players
+                ptr = 0
+                new_groups = {}
+                for gn, (sz, md, gc) in gcfg.items():
+                    gp = players_sorted[ptr:ptr+sz]
+                    ptr += sz
+                    if md == "고정페어":
+                        ms, _ = make_fixed(gp)
+                        pwn = {}
+                    elif md == "KDK":
+                        ms, pwn = make_kdk(gp, gc)
+                        if not ms:
+                            ms, _ = make_singles(gp)
+                            pwn = {}
+                    else:
+                        ms, _ = make_singles(gp)
+                        pwn = {}
+                    new_groups[gn] = {"players": gp, "mode": md, "games": gc, "matches": ms, "player_with_number": pwn}
+                edit_tour["groups"] = new_groups
+                save_tours(tours)
+                st.success("그룹 설정 적용 완료!")
+                st.rerun()
 
-    # 참가자·대진
+    # 참가자·대진 (개별 수정)
     with adm[1]:
         tours = load_tours()
         active = [k for k,v in tours.items() if v.get("status") == "진행중"]
@@ -803,190 +868,115 @@ elif M == "admin":
         sel_tid = st.selectbox("대회 선택", active, format_func=lambda k: tours[k]['title'])
         tour = tours[sel_tid]
         
-        # 현재 대진 상태 표시
+        # 현재 상태 표시
         if tour.get("groups"):
             st.info(f"✅ 현재 {len(tour['groups'])}개 그룹")
             for gname, ginfo in tour["groups"].items():
-                st.markdown(f"- **{gname}**: {ginfo['mode']} 방식, {len(ginfo['players'])}명: {', '.join(ginfo['players'])}")
+                st.markdown(f"- **{gname}**: {ginfo['mode']} 방식, {len(ginfo['players'])}명")
         
-        st.markdown('<div class="sec">📝 참가자 관리 (현재 그룹 유지)</div>', unsafe_allow_html=True)
-        
-        # 현재 저장된 참가자 목록 (tour["players"] 기준)
-        if "players" not in tour:
-            tour["players"] = []
-        current_all_players = tour["players"].copy()
-        
-        # 그룹별 참가자 표시 및 수정 인터페이스
-        if tour.get("groups"):
-            groups = list(tour["groups"].keys())
-            
-            # 새 참가자 추가 (전체)
-            st.markdown("**➕ 새 참가자 추가 (전체)**")
-            new_player_name = st.text_input("새 참가자 이름", placeholder="예: 홍길동", key="global_add_name")
-            target_group = st.selectbox("추가할 그룹", groups, key="global_target_group")
-            if st.button("➕ 전체에 추가", use_container_width=True):
-                if new_player_name and new_player_name.strip():
-                    new_name = new_player_name.strip()
-                    if new_name not in tour["groups"][target_group]["players"]:
-                        tour["groups"][target_group]["players"].append(new_name)
-                        if new_name not in tour["players"]:
-                            tour["players"].append(new_name)
-                        
-                        # 대진 재생성
-                        mode = tour["groups"][target_group]["mode"]
-                        gc = tour["groups"][target_group].get("games", 3)
-                        if mode == "고정페어":
-                            new_ms, _ = make_fixed(tour["groups"][target_group]["players"])
-                        elif mode == "KDK":
-                            new_ms, new_pwn = make_kdk(tour["groups"][target_group]["players"], gc)
-                            tour["groups"][target_group]["player_with_number"] = new_pwn
-                        else:
-                            new_ms, _ = make_singles(tour["groups"][target_group]["players"])
-                        tour["groups"][target_group]["matches"] = new_ms
-                        save_tours(tours)
-                        st.success(f"'{new_name}' 추가됨")
-                        st.rerun()
-                    else:
-                        st.warning("이미 있는 참가자입니다.")
-            
-            st.markdown("---")
-            
-            # 그룹별 참가자 수정
-            for sel_group in groups:
-                st.markdown(f"**📌 {sel_group}**")
-                current_players = tour["groups"][sel_group]["players"].copy()
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    if current_players:
-                        sel_player = st.selectbox(f"삭제할 참가자", current_players, key=f"del_{sel_group}")
-                        if st.button(f"🗑 {sel_group}에서 삭제", key=f"del_btn_{sel_group}", use_container_width=True):
-                            tour["groups"][sel_group]["players"].remove(sel_player)
-                            # 전체 players 목록에서도 제거 (해당 선수가 다른 그룹에 없을 경우)
-                            if sel_player not in [p for g in groups for p in tour["groups"][g]["players"]]:
-                                if sel_player in tour["players"]:
-                                    tour["players"].remove(sel_player)
-                            # 대진에서 해당 참가자 제거
-                            new_matches = [m for m in tour["groups"][sel_group]["matches"] 
-                                           if sel_player not in m["t1"] and sel_player not in m["t2"]]
-                            tour["groups"][sel_group]["matches"] = new_matches
-                            save_tours(tours)
-                            st.success(f"'{sel_player}' 삭제됨")
-                            st.rerun()
-                    else:
-                        st.write("참가자 없음")
-                
-                with col2:
-                    new_name_group = st.text_input(f"새 참가자", placeholder="이름", key=f"add_{sel_group}")
-                    if st.button(f"➕ {sel_group}에 추가", key=f"add_btn_{sel_group}", use_container_width=True):
-                        if new_name_group and new_name_group.strip():
-                            new_name = new_name_group.strip()
-                            if new_name not in tour["groups"][sel_group]["players"]:
-                                tour["groups"][sel_group]["players"].append(new_name)
-                                if new_name not in tour["players"]:
-                                    tour["players"].append(new_name)
-                                
-                                mode = tour["groups"][sel_group]["mode"]
-                                gc = tour["groups"][sel_group].get("games", 3)
-                                if mode == "고정페어":
-                                    new_ms, _ = make_fixed(tour["groups"][sel_group]["players"])
-                                elif mode == "KDK":
-                                    new_ms, new_pwn = make_kdk(tour["groups"][sel_group]["players"], gc)
-                                    tour["groups"][sel_group]["player_with_number"] = new_pwn
-                                else:
-                                    new_ms, _ = make_singles(tour["groups"][sel_group]["players"])
-                                tour["groups"][sel_group]["matches"] = new_ms
-                                save_tours(tours)
-                                st.success(f"'{new_name}' 추가됨")
-                                st.rerun()
-                            else:
-                                st.warning("이미 있는 참가자입니다.")
-                st.markdown("---")
-            
-            # 참가자 그룹 이동
-            st.markdown("**🔄 참가자 그룹 이동**")
-            all_players_with_group = []
-            for g in groups:
-                for p in tour["groups"][g]["players"]:
-                    all_players_with_group.append((p, g))
-            if all_players_with_group:
-                move_player = st.selectbox("이동할 참가자", [p[0] for p in all_players_with_group], key="move_player")
-                current_group = next((g for p, g in all_players_with_group if p == move_player), groups[0])
-                target_group = st.selectbox("이동할 그룹", [g for g in groups if g != current_group], key="target_group")
-                if st.button("🔄 이동", use_container_width=True):
-                    # 현재 그룹에서 제거
-                    tour["groups"][current_group]["players"].remove(move_player)
-                    # 새 그룹에 추가
-                    tour["groups"][target_group]["players"].append(move_player)
-                    
-                    # 두 그룹 모두 대진 재생성
-                    for grp in [current_group, target_group]:
-                        mode = tour["groups"][grp]["mode"]
-                        gc = tour["groups"][grp].get("games", 3)
-                        if mode == "고정페어":
-                            new_ms, _ = make_fixed(tour["groups"][grp]["players"])
-                        elif mode == "KDK":
-                            new_ms, new_pwn = make_kdk(tour["groups"][grp]["players"], gc)
-                            tour["groups"][grp]["player_with_number"] = new_pwn
-                        else:
-                            new_ms, _ = make_singles(tour["groups"][grp]["players"])
-                        tour["groups"][grp]["matches"] = new_ms
-                    
-                    save_tours(tours)
-                    st.success(f"'{move_player}' {target_group}으로 이동됨")
-                    st.rerun()
-        
-        else:
-            st.info("아직 생성된 그룹이 없습니다. 아래에서 대진을 생성하세요.")
-        
-        st.divider()
-        
-        # 대진 생성/재생성 섹션
-        st.markdown('<div class="sec">🎲 대진 생성 (최초 1회)</div>', unsafe_allow_html=True)
-        st.caption("※ 대진을 생성하면 그룹이 구성됩니다. 이후에는 위에서 개별 수정이 가능합니다.")
-        
+        st.markdown('<div class="sec">📝 참가자 명단 (일괄 입력)</div>', unsafe_allow_html=True)
         member_roster = load_members()
         default_text = ", ".join(tour.get("players", st.session_state.participants))
-        part_input = st.text_area("참가자 명단 (쉼표 또는 줄바꿈 구분)", value=default_text, height=100)
+        part_input = st.text_area("참가자 명단", value=default_text, height=100)
         
-        if st.button("✅ 명단 저장 및 대진 생성", use_container_width=True, type="primary"):
+        if st.button("✅ 명단 저장 (기존 그룹 유지)", use_container_width=True, type="primary"):
             raw_names = part_input.replace("\n", ",").split(",")
             parsed = [n.strip() for n in raw_names if n.strip()]
             roster_order = {nm: i for i, nm in enumerate(member_roster)}
             parsed_sorted = sorted(set(parsed), key=lambda x: roster_order.get(x, len(member_roster)+1))
             st.session_state.participants = parsed_sorted
-            
-            # 기본 그룹 설정
-            gcnt = 4
-            players_sorted = parsed_sorted
-            ptr = 0
-            new_groups = {}
-            group_names = ["A그룹", "B그룹", "C그룹", "D그룹"]
-            for i, gn in enumerate(group_names[:gcnt]):
-                sz = max(2, len(players_sorted)//gcnt)
-                if i == gcnt - 1:
-                    sz = len(players_sorted) - ptr
-                gp = players_sorted[ptr:ptr+sz]
-                ptr += sz
-                md = "고정페어"
-                gc = 4
-                if md == "고정페어":
-                    ms, _ = make_fixed(gp)
-                    pwn = {}
-                elif md == "KDK":
-                    ms, pwn = make_kdk(gp, gc)
-                    if not ms:
-                        ms, _ = make_singles(gp)
-                        pwn = {}
-                else:
-                    ms, _ = make_singles(gp)
-                    pwn = {}
-                new_groups[gn] = {"players": gp, "mode": md, "games": gc, "matches": ms, "player_with_number": pwn}
-            tours[sel_tid]["groups"] = new_groups
             tours[sel_tid]["players"] = parsed_sorted
             save_tours(tours)
-            st.success("대진 생성 완료! 이제 위에서 개별 수정이 가능합니다.")
+            st.success(f"{len(parsed_sorted)}명 저장됨")
             st.rerun()
+        
+        # 개별 수정 섹션
+        st.markdown('<div class="sec">✏️ 개별 참가자 수정 (대진 유지)</div>', unsafe_allow_html=True)
+        if tour.get("groups"):
+            groups = list(tour["groups"].keys())
+            if groups:
+                # 그룹 선택
+                sel_group = st.selectbox("그룹 선택", groups, key="edit_group")
+                current_players = tour["groups"][sel_group]["players"].copy()
+                st.markdown(f"**현재 {sel_group} 참가자:** {', '.join(current_players) if current_players else '없음'}")
+                
+                # 참가자 삭제
+                if current_players:
+                    sel_player = st.selectbox("삭제할 참가자", current_players, key="del_player")
+                    if st.button("🗑 삭제", use_container_width=True):
+                        tour["groups"][sel_group]["players"].remove(sel_player)
+                        new_matches = [m for m in tour["groups"][sel_group]["matches"] 
+                                       if sel_player not in m["t1"] and sel_player not in m["t2"]]
+                        tour["groups"][sel_group]["matches"] = new_matches
+                        if sel_player not in [p for g in groups for p in tour["groups"][g]["players"]]:
+                            if sel_player in tour.get("players", []):
+                                tour["players"].remove(sel_player)
+                        save_tours(tours)
+                        st.success(f"'{sel_player}' 삭제됨")
+                        st.rerun()
+                
+                st.markdown("---")
+                
+                # 새 참가자 추가
+                new_name = st.text_input("새 참가자 이름", placeholder="예: 홍길동", key="add_player")
+                if st.button("➕ 추가", use_container_width=True):
+                    if new_name and new_name.strip():
+                        new_name = new_name.strip()
+                        if new_name not in tour["groups"][sel_group]["players"]:
+                            tour["groups"][sel_group]["players"].append(new_name)
+                            if new_name not in tour.get("players", []):
+                                if "players" not in tour:
+                                    tour["players"] = []
+                                tour["players"].append(new_name)
+                            
+                            mode = tour["groups"][sel_group]["mode"]
+                            gc = tour["groups"][sel_group].get("games", 3)
+                            if mode == "고정페어":
+                                new_ms, _ = make_fixed(tour["groups"][sel_group]["players"])
+                            elif mode == "KDK":
+                                new_ms, new_pwn = make_kdk(tour["groups"][sel_group]["players"], gc)
+                                tour["groups"][sel_group]["player_with_number"] = new_pwn
+                            else:
+                                new_ms, _ = make_singles(tour["groups"][sel_group]["players"])
+                            tour["groups"][sel_group]["matches"] = new_ms
+                            save_tours(tours)
+                            st.success(f"'{new_name}' 추가됨")
+                            st.rerun()
+                        else:
+                            st.warning("이미 있는 참가자입니다.")
+                
+                st.markdown("---")
+                
+                # 참가자 이동
+                all_players_with_group = []
+                for g in groups:
+                    for p in tour["groups"][g]["players"]:
+                        all_players_with_group.append((p, g))
+                if all_players_with_group:
+                    move_player = st.selectbox("이동할 참가자", [p[0] for p in all_players_with_group], key="move_player")
+                    current_group = next((g for p, g in all_players_with_group if p == move_player), groups[0])
+                    target_group = st.selectbox("이동할 그룹", [g for g in groups if g != current_group], key="target_group")
+                    if st.button("🔄 이동", use_container_width=True):
+                        tour["groups"][current_group]["players"].remove(move_player)
+                        tour["groups"][target_group]["players"].append(move_player)
+                        
+                        for grp in [current_group, target_group]:
+                            mode = tour["groups"][grp]["mode"]
+                            gc = tour["groups"][grp].get("games", 3)
+                            if mode == "고정페어":
+                                new_ms, _ = make_fixed(tour["groups"][grp]["players"])
+                            elif mode == "KDK":
+                                new_ms, new_pwn = make_kdk(tour["groups"][grp]["players"], gc)
+                                tour["groups"][grp]["player_with_number"] = new_pwn
+                            else:
+                                new_ms, _ = make_singles(tour["groups"][grp]["players"])
+                            tour["groups"][grp]["matches"] = new_ms
+                        
+                        save_tours(tours)
+                        st.success(f"'{move_player}' {target_group}으로 이동됨")
+                        st.rerun()
+        else:
+            st.info("아직 생성된 그룹이 없습니다. '대회 관리' 탭에서 그룹을 먼저 설정하세요.")
 
     # 랭킹 관리
     with adm[2]:
