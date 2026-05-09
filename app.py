@@ -5,12 +5,12 @@ from datetime import date
 from io import BytesIO
 
 # ══════════════════════════════════════════════════════════════
-# 앱 설정 (반응형 + 다크모드 지원)
+# 앱 설정 (반응형 + 다크모드 지원, 가독성 강화)
 # ══════════════════════════════════════════════════════════════
 st.set_page_config(page_title="두류 랭킹", page_icon="🎾",
                    layout="wide", initial_sidebar_state="collapsed")
 
-# 반응형 + 다크모드 지원 CSS (가독성 강화)
+# CSS: 매트릭스 및 전체 UI 가독성 향상
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap');
@@ -213,37 +213,37 @@ hr {
     border-radius: 10px !important;
 }
 
-/* ===== 매트릭스 테이블 (가독성 강화) ===== */
+/* ===== 매트릭스 테이블 (가독성 강화 - 라이트/다크모드 모두) ===== */
 .matrix-table {
     width: 100%;
     border-collapse: collapse;
     font-size: clamp(0.65rem, 3vw, 0.8rem);
-    background: var(--background-color, #fff);
+    background: #ffffff;
 }
 .matrix-table th, .matrix-table td {
     padding: 8px 6px;
-    border: 1px solid rgba(128,128,128,0.3);
+    border: 1px solid #ccc;
     text-align: center;
-    font-weight: 600;
+    font-weight: 700;  /* 글자 진하게 */
 }
 .matrix-table th {
-    background-color: rgba(29, 91, 46, 0.2) !important;
+    background-color: #c8e6c9 !important;
+    color: #1D5B2E !important;
     font-weight: 800;
-    color: #1D5B2E;
 }
 .matrix-grey {
-    background-color: rgba(160,160,160,0.3) !important;
-    color: #555 !important;
-    font-weight: 600;
+    background-color: #e0e0e0 !important;
+    color: #2c2c2c !important;
+    font-weight: 800;
 }
 .matrix-x {
-    color: #999;
-    font-weight: 500;
+    color: #888;
+    font-weight: 600;
 }
 
 /* ===== KDK 대진표 (가독성 강화) ===== */
 .kdk-bracket {
-    background: rgba(245,245,245,0.7);
+    background: #f5f5f5;
     border-radius: 14px;
     padding: 12px;
     margin: 10px 0;
@@ -257,16 +257,16 @@ hr {
 .kdk-bracket th, .kdk-bracket td {
     padding: 8px;
     text-align: center;
-    border: 1px solid rgba(128,128,128,0.3);
+    border: 1px solid #ccc;
     font-weight: 600;
 }
 .kdk-bracket th {
-    background-color: rgba(29, 91, 46, 0.2) !important;
+    background-color: #c8e6c9 !important;
+    color: #1D5B2E !important;
     font-weight: 800;
-    color: #1D5B2E;
 }
 .kdk-bracket tbody tr:nth-child(even) {
-    background: rgba(0,0,0,0.03);
+    background: #fafafa;
 }
 
 /* 카드 */
@@ -274,8 +274,8 @@ hr {
     padding: 10px 14px;
     margin: 8px 0;
     border-radius: 12px;
-    background: var(--background-color, #fff);
-    border: 1px solid rgba(128,128,128,0.2);
+    background: #ffffff;
+    border: 1px solid #ddd;
     box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 
@@ -307,31 +307,38 @@ hr {
     }
 }
 
-/* 다크모드 */
+/* 다크모드 전용 (라이트모드 대비 강화, 글자 항상 진하게) */
 @media (prefers-color-scheme: dark) {
     .matrix-table {
         background: #1e1e1e;
     }
     .matrix-table td {
-        color: #e0e0e0;
+        color: #f0f0f0 !important;
+        font-weight: 600;
     }
     .matrix-table th {
-        background-color: rgba(80, 120, 80, 0.3) !important;
-        color: #c8e6c9;
+        background-color: #1D5B2E !important;
+        color: #ffffff !important;
     }
     .matrix-grey {
         background-color: #3a3a3a !important;
-        color: #aaa !important;
+        color: #dddddd !important;
+    }
+    .matrix-x {
+        color: #aaa;
     }
     .kdk-bracket {
         background: #2a2a2a;
     }
     .kdk-bracket td {
-        color: #e0e0e0;
+        color: #f0f0f0;
     }
     .kdk-bracket th {
-        background-color: rgba(80, 120, 80, 0.3) !important;
-        color: #c8e6c9;
+        background-color: #1D5B2E !important;
+        color: #ffffff !important;
+    }
+    .kdk-bracket tbody tr:nth-child(even) {
+        background: #333;
     }
     .tour-card, .rank-card {
         background: #2a2a2a;
@@ -524,7 +531,7 @@ def make_singles(players):
     return [{"t1": [a], "t2": [b], "s1": 0, "s2": 0} for a, b in ms], {}
 
 # ------------------------------------------------------------------
-# KDK 대진표 표시 함수 (한글/숫자만, HTML 태그 정상, 가독성 강화)
+# KDK 대진표 표시 함수 (한글/숫자만, 가독성 강화)
 # ------------------------------------------------------------------
 def display_kdk_bracket(n, games_per_person, player_with_number):
     if games_per_person == 3:
@@ -683,17 +690,17 @@ elif M == "schedule":
                 mdf = pd.DataFrame(mat).T
                 
                 header_cells = "".join(f"<th style='text-align:center; font-weight:700;'>{col}</th>" for col in mdf.columns)
-                html = f'<table class="matrix-table"><thead><tr><th style="text-align:center"></th>{header_cells}</td></thead><tbody>'
+                html = f'<table class="matrix-table"><thead><tr><th style="text-align:center"></th>{header_cells}</tr></thead><tbody>'
                 for idx, row in mdf.iterrows():
                     html += f'叉戟<th style="text-align:center; font-weight:700;">{idx}</th>'
                     for col in mdf.columns:
                         val = row[col]
                         if val == '■':
-                            html += '<td class="matrix-grey" style="text-align:center; font-weight:600;">■</td>'
+                            html += '<td class="matrix-grey" style="text-align:center; font-weight:800;">■</td>'
                         elif val == 'X':
-                            html += '<td class="matrix-x" style="text-align:center;">X</td>'
+                            html += '<td class="matrix-x" style="text-align:center; font-weight:600;">X</td>'
                         else:
-                            html += f"<td style='text-align:center; font-weight:500;'>{val}</td>"
+                            html += f"<td style='text-align:center; font-weight:600;'>{val}</td>"
                     html += "</tr>"
                 html += "</tbody></table>"
                 st.markdown(html, unsafe_allow_html=True)
@@ -921,7 +928,7 @@ elif M == "archive":
             st.dataframe(detail_df, use_container_width=True, hide_index=True, column_config=detail_col_cfg)
 
 # ══════════════════════════════════════════════════════════════
-# 5. 관리자 (이전과 동일 - 생략)
+# 5. 관리자 (전체 기능 포함)
 # ══════════════════════════════════════════════════════════════
 elif M == "admin":
     st.markdown("<div class='main-hdr'>⚙️ 관리자</div>", unsafe_allow_html=True)
@@ -936,7 +943,7 @@ elif M == "admin":
 
     adm = st.tabs(["🏆 대회 관리", "👥 참가자·대진", "📋 랭킹 관리", "💾 결과 반영"])
 
-    # 대회 관리 (코드 동일)
+    # 대회 관리
     with adm[0]:
         st.markdown('<div class="sec">새 대회 생성</div>', unsafe_allow_html=True)
         with st.form("f_new_tour"):
@@ -1018,7 +1025,7 @@ elif M == "admin":
                     st.rerun()
             st.divider()
 
-    # 참가자·대진 (코드 동일)
+    # 참가자·대진
     with adm[1]:
         tours = load_tours()
         active_t = [k for k,v in tours.items() if v.get("status") == "진행중"]
@@ -1191,7 +1198,7 @@ elif M == "admin":
                 st.success("✅ 대진 생성 완료!")
                 st.rerun()
 
-    # 랭킹 관리 (이전과 동일)
+    # 랭킹 관리
     with adm[2]:
         st.markdown('<div class="sec">📁 엑셀 업로드</div>', unsafe_allow_html=True)
         up = st.file_uploader("파일 선택", type=["xlsx","csv"])
@@ -1230,7 +1237,7 @@ elif M == "admin":
                 st.success("저장 완료!")
                 st.rerun()
 
-    # 결과 반영 (이전과 동일)
+    # 결과 반영
     with adm[3]:
         tours  = load_tours()
         active2 = [k for k,v in tours.items() if v.get("status") == "진행중"]
