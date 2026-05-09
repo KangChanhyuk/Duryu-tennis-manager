@@ -10,7 +10,7 @@ from io import BytesIO
 st.set_page_config(page_title="두류 랭킹", page_icon="🎾",
                    layout="wide", initial_sidebar_state="collapsed")
 
-# CSS: 가운데 정렬, 터치 최적화, 다크모드 대비 강화
+# CSS: 가운데 정렬, 터치 최적화, 다크모드 대비 강화, 매트릭스 안정화
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800;900&display=swap');
@@ -187,18 +187,19 @@ hr { margin: 10px 0; }
     min-height: 44px !important;
 }
 
-/* ===== 매트릭스 테이블 (진한 글자, 라이트/다크 대비) ===== */
+/* ===== 매트릭스 테이블 (진한 글자, 라이트/다크 대비, 깨짐 방지) ===== */
 .matrix-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.7rem;
+    background: transparent;
 }
 .matrix-table th, .matrix-table td {
     padding: 7px 5px;
     border: 1px solid #ddd;
     text-align: center;
     vertical-align: middle;
-    font-weight: 700;          /* 글자 진하게 */
+    font-weight: 700;
 }
 .matrix-table th {
     background: #f0f4f0;
@@ -251,7 +252,7 @@ hr { margin: 10px 0; }
 .tour-card, .rank-card { padding: 8px 12px; margin: 6px 0; border-radius: 10px; }
 .dataframe th { font-size: 0.7rem !important; padding: 6px 3px !important; }
 
-/* 모바일 반응형 */
+/* 모바일 */
 @media (max-width: 640px) {
     .block-container {
         padding: 0.3rem 0.5rem 0.8rem 0.5rem !important;
@@ -279,7 +280,7 @@ hr { margin: 10px 0; }
     }
 }
 
-/* ===== 다크모드 전용 (배경 어두울 때 글자 밝게, 대비 강화) ===== */
+/* 다크모드 */
 @media (prefers-color-scheme: dark) {
     .matrix-table {
         background: #1e1e1e;
@@ -632,6 +633,8 @@ elif M == "schedule":
                     lab = {t: " & ".join(list(t)) for t in rank_items}
                 else:
                     lab = {p: f"{p}({player_with_number.get(p, '?')})" for p in rank_items}
+                
+                # 초기 매트릭스: 자신은 ■, 그 외는 X
                 mat = {lab[t]: {lab[o]: ("■" if t==o else "X") for o in lab.keys()} for t in lab.keys()}
                 for m in matches:
                     if is_fixed:
@@ -649,10 +652,14 @@ elif M == "schedule":
                                     mat[lab[a]][lab[b]] = f"{s1}:{s2}"
                                     mat[lab[b]][lab[a]] = f"{s2}:{s1}"
                 mdf = pd.DataFrame(mat).T
-                header_cells = "".join(f"<th>{col}</th>" for col in mdf.columns)
-                html = f'<table class="matrix-table"><thead><tr><th></th>{header_cells}</table></thead><tbody>'
+                
+                # 안전한 HTML 생성 (깨짐 방지)
+                html = '<table class="matrix-table"><thead><tr><th></th>'
+                for col in mdf.columns:
+                    html += f'<th>{col}</th>'
+                html += '</tr></thead><tbody>'
                 for idx, row in mdf.iterrows():
-                    html += f"叉戟<th>{idx}</th>"
+                    html += f'叉戟<th>{idx}</th>'
                     for col in mdf.columns:
                         val = row[col]
                         if val == '■':
@@ -660,10 +667,12 @@ elif M == "schedule":
                         elif val == 'X':
                             html += '<td class="matrix-x">X</td>'
                         else:
-                            html += f"<td>{val}</td>"
-                    html += "</tr>"
-                html += "</tbody></table>"
+                            html += f'<td>{val}</td>'
+                    html += '</tr>'
+                html += '</tbody></table>'
                 st.markdown(html, unsafe_allow_html=True)
+            else:
+                st.info("경기 데이터가 없습니다.")
             
             if not is_fixed and player_with_number:
                 st.divider()
@@ -999,15 +1008,12 @@ elif M == "admin":
                     ptr += sz
                     if md == "고정페어":
                         ms, pwn = make_fixed(gp), {}
-                        ms = ms[0]
                     elif md == "KDK":
                         ms, pwn = make_kdk(gp, gc)
                         if not ms:
                             ms, pwn = make_singles(gp), {}
-                            ms = ms[0]
                     else:
                         ms, pwn = make_singles(gp), {}
-                        ms = ms[0]
                     new_groups[gn] = {"players": gp, "mode": md, "games": gc, "matches": ms, "player_with_number": pwn}
                 edit_tour["groups"] = new_groups
                 save_tours(tours)
