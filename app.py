@@ -363,9 +363,6 @@ def to_excel(df):
     df.to_excel(buf, index=False)
     return buf.getvalue()
 
-def tname(t):
-    return " & ".join(t) if len(t)>1 else t[0]
-
 def group_stats_fixed(matches):
     stats = {}
     for m in matches:
@@ -386,6 +383,7 @@ def group_stats_fixed(matches):
     return stats
 
 def group_stats_kdk(matches):
+    """KDK 통계 계산 - 개인 단위"""
     stats = {}
     for m in matches:
         players1 = m["t1"]
@@ -406,6 +404,7 @@ def group_stats_kdk(matches):
                 stats[p]["승"] += 1
             for p in players1:
                 stats[p]["패"] += 1
+        # 무승부는 승패 변화 없음
         
         for p in players1:
             stats[p]["득실"] += (s1 - s2)
@@ -437,9 +436,10 @@ def get_grade_kdk(rank):
         return "참가"
 
 # ══════════════════════════════════════════════════════════════
-# KDK 대진 생성 함수
+# KDK 대진 생성 함수 (랜덤 번호 부여)
 # ══════════════════════════════════════════════════════════════
 def make_kdk(players, games_per_person):
+    """KDK 대진 생성 - 참가자에게 랜덤 번호 부여 후 대진표 적용"""
     n = len(players)
     
     if games_per_person == 3:
@@ -450,15 +450,17 @@ def make_kdk(players, games_per_person):
     if not bp:
         return None, {}
     
+    # 참가자 랜덤 배치 후 1번부터 n번까지 번호 부여
     shuffled = random.sample(players, n)
-    player_by_number = {i+1: shuffled[i] for i in range(n)}
-    player_with_number = {shuffled[i]: i+1 for i in range(n)}
+    player_with_number = {shuffled[i]: i+1 for i in range(n)}  # 이름 -> 번호
+    number_to_player = {i+1: shuffled[i] for i in range(n)}    # 번호 -> 이름
     
     matches = []
     for a, b, c, d in bp:
+        # a,b가 한 팀, c,d가 한 팀
         matches.append({
-            "t1": [player_by_number[a], player_by_number[b]],
-            "t2": [player_by_number[c], player_by_number[d]],
+            "t1": [number_to_player[a], number_to_player[b]],
+            "t2": [number_to_player[c], number_to_player[d]],
             "s1": 0,
             "s2": 0
         })
@@ -496,6 +498,7 @@ def display_kdk_bracket(n, games_per_person, player_with_number):
     if not bracket:
         return
     
+    # 번호 -> 이름 매핑 (표시용)
     number_to_name = {v: k for k, v in player_with_number.items()}
     
     st.markdown(f'<div class="kdk-bracket"><strong>{title}</strong>', unsafe_allow_html=True)
@@ -623,8 +626,10 @@ elif M == "schedule":
                     lab = {t: " & ".join(list(t)) for t in all_teams}
                 else:
                     all_players = list(set([p for m in matches for p in m["t1"] + m["t2"]]))
+                    # 이름 옆에 번호 표시
                     lab = {p: f"{p}({player_with_number.get(p, '?')})" for p in all_players}
                 
+                # 초기 매트릭스: 자신은 ■, 그 외는 X
                 mat = {lab[t]: {lab[o]: ("■" if t==o else "X") for o in lab.keys()} for t in lab.keys()}
                 for m in matches:
                     if is_fixed:
@@ -636,15 +641,13 @@ elif M == "schedule":
                     s1, s2 = int(m["s1"]), int(m["s2"])
                     if s1 > 0 or s2 > 0:
                         if is_fixed:
-                            if s1 > 0 or s2 > 0:
-                                mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
-                                mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
+                            mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
+                            mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
                         else:
                             for p1 in players1:
                                 for p2 in players2:
-                                    if s1 > 0 or s2 > 0:
-                                        mat[lab[p1]][lab[p2]] = f"{s1}:{s2}"
-                                        mat[lab[p2]][lab[p1]] = f"{s2}:{s1}"
+                                    mat[lab[p1]][lab[p2]] = f"{s1}:{s2}"
+                                    mat[lab[p2]][lab[p1]] = f"{s2}:{s1}"
                 mdf = pd.DataFrame(mat).T
                 
                 html_table = '<table class="matrix-table">'
