@@ -10,7 +10,7 @@ from io import BytesIO
 st.set_page_config(page_title="두류 랭킹 관리 시스템", page_icon="🎾",
                    layout="wide", initial_sidebar_state="collapsed")
 
-# UI 개선 CSS - 가독성 및 가운데 정렬 강화
+# UI 개선 CSS - 가운데 정렬 강화
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&display=swap');
@@ -67,7 +67,7 @@ button[data-baseweb="tab"][aria-selected="true"] {
 }
 
 /* ================================================================
-   ★★★★★ 강력한 가운데 정렬 ★★★★★
+   ★★★★★ 강력한 가운데 정렬 - 모든 테이블 ★★★★★
    ================================================================ */
 div[data-testid="stDataFrame"] table,
 div[data-testid="stDataEditor"] table,
@@ -91,7 +91,7 @@ table th, table td,
     padding: 10px 8px !important;
 }
 
-/* 숫자 입력 필드 가운데 정렬 및 크기 증가 */
+/* 숫자 입력 필드 가운데 정렬 */
 input[type="number"] {
     text-align: center !important;
     font-size: 1.1rem !important;
@@ -109,6 +109,12 @@ input[type="text"], textarea {
     text-align: center !important;
 }
 
+/* 드롭다운 가운데 정렬 */
+select {
+    text-align: center !important;
+    text-align-last: center !important;
+}
+
 /* 경기 입력 행 전체 가운데 정렬 */
 div[data-testid="column"] {
     display: flex;
@@ -116,7 +122,7 @@ div[data-testid="column"] {
     align-items: center;
 }
 
-/* 팀 도형 - 이름 크기 증가 */
+/* 팀 도형 */
 .team-box {
     border-radius:14px; 
     padding: 12px 16px !important; 
@@ -144,7 +150,7 @@ div[data-testid="column"] {
 .match-color-1 { background: linear-gradient(135deg,#42A5F5,#1E88E5) !important; color:#fff; }
 .match-color-2 { background: linear-gradient(135deg,#FFA726,#FB8C00) !important; color:#fff; }
 
-/* VS 원 - 크기 증가 */
+/* VS 원 */
 .vs-circle {
     background:#FFB74D; 
     color:#fff; 
@@ -158,26 +164,6 @@ div[data-testid="column"] {
     font-size: 1rem;
     margin: 0 auto;
     box-shadow: 0 3px 10px rgba(255,183,77,.4);
-}
-
-/* 라운드 카드 */
-.round-card {
-    background: linear-gradient(135deg, #ffffff, #f8f9fa);
-    border: 1px solid #e0e0e0;
-    border-radius: 16px;
-    padding: 20px;
-    margin: 15px 0;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-}
-.round-title {
-    background: linear-gradient(90deg,#1D5B2E,#43A047);
-    color: white;
-    border-radius: 12px;
-    padding: 10px 20px;
-    font-weight: 800;
-    text-align: center;
-    margin-bottom: 20px;
-    font-size: 1.1rem;
 }
 
 /* 구분선 */
@@ -239,6 +225,10 @@ hr {
     background-color: #d0d0d0;
     color: #d0d0d0;
 }
+.matrix-x {
+    color: #999;
+    font-weight: normal;
+}
 
 /* KDK 대진표 스타일 */
 .kdk-bracket {
@@ -246,14 +236,20 @@ hr {
     border-radius: 12px;
     padding: 15px;
     margin: 10px 0;
-    font-family: monospace;
     font-size: 0.9rem;
     overflow-x: auto;
 }
-.kdk-bracket pre {
-    margin: 0;
-    white-space: pre-wrap;
-    word-break: keep-all;
+.kdk-bracket table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.kdk-bracket th, .kdk-bracket td {
+    padding: 8px;
+    text-align: center;
+    border: 1px solid #ddd;
+}
+.kdk-bracket th {
+    background-color: #e8f5e9;
 }
 
 /* 버튼 스타일 */
@@ -269,9 +265,15 @@ hr {
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
-/* 데이터프레임 내부 글자 크기 */
+/* 데이터프레임 내부 글자 크기 및 가운데 정렬 */
 .dataframe td, .dataframe th {
     font-size: 0.9rem !important;
+    text-align: center !important;
+}
+
+/* 스트림릿 기본 테이블도 가운데 정렬 */
+.stTable td, .stTable th {
+    text-align: center !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -292,7 +294,6 @@ GLBL = ["🟢","🔵","🟠","🟣","🔴","🩵"]
 # ══════════════════════════════════════════════════════════════
 # KDK 대진표 (1인 3게임)
 # ══════════════════════════════════════════════════════════════
-# 형식: (a,b,c,d) = (a,b)팀 vs (c,d)팀
 KDK_3G = {
     4: [(1,4,2,3), (1,3,2,4), (1,2,3,4)],
     8: [(1,2,3,4), (5,6,7,8), (1,8,2,7), (3,6,4,5), (1,4,5,8), (2,3,6,7)],
@@ -366,7 +367,6 @@ def tname(t):
     return " & ".join(t) if len(t)>1 else t[0]
 
 def group_stats_fixed(matches):
-    """고정페어 통계 계산 (팀 단위)"""
     stats = {}
     for m in matches:
         t1 = tuple(m["t1"])
@@ -386,7 +386,6 @@ def group_stats_fixed(matches):
     return stats
 
 def group_stats_kdk(matches):
-    """KDK 통계 계산 (개인 단위) - 페어 경기 결과를 개인에게 적용"""
     stats = {}
     for m in matches:
         players1 = m["t1"]
@@ -438,10 +437,9 @@ def get_grade_kdk(rank):
         return "참가"
 
 # ══════════════════════════════════════════════════════════════
-# KDK 대진 생성 함수 (번호 기반)
+# KDK 대진 생성 함수
 # ══════════════════════════════════════════════════════════════
 def make_kdk(players, games_per_person):
-    """KDK 대진 생성 - 정확한 대진표 적용, 페어 단위"""
     n = len(players)
     
     if games_per_person == 3:
@@ -450,13 +448,11 @@ def make_kdk(players, games_per_person):
         bp = KDK_4G.get(n)
     
     if not bp:
-        return None
+        return None, {}
     
-    # 참가자 랜덤 배치 후 번호 부여
     shuffled = random.sample(players, n)
     player_by_number = {i+1: shuffled[i] for i in range(n)}
-    # 번호 정보 저장 (매트릭스 표시용)
-    player_with_number = {p: i+1 for i, p in enumerate(shuffled)}
+    player_with_number = {shuffled[i]: i+1 for i in range(n)}
     
     matches = []
     for a, b, c, d in bp:
@@ -477,41 +473,40 @@ def make_fixed(players):
         for j in range(i+1, len(pairs)):
             ms.append({"t1": list(pairs[i]), "t2": list(pairs[j]), "s1": 0, "s2": 0})
     random.shuffle(ms)
-    return ms, None
+    return ms, {}
 
 def make_singles(players):
     pl = players[:]
     random.shuffle(pl)
     ms = [(pl[i], pl[j]) for i in range(len(pl)) for j in range(i+1, len(pl))]
     random.shuffle(ms)
-    return [{"t1": [a], "t2": [b], "s1": 0, "s2": 0} for a, b in ms], None
+    return [{"t1": [a], "t2": [b], "s1": 0, "s2": 0} for a, b in ms], {}
 
 # ══════════════════════════════════════════════════════════════
-# KDK 대진표 표시 함수 (사진 형식)
+# KDK 대진표 표시 함수
 # ══════════════════════════════════════════════════════════════
 def display_kdk_bracket(n, games_per_person, player_with_number):
-    """KDK 대진표를 표 형식으로 표시"""
     if games_per_person == 3:
         bracket = KDK_3G.get(n)
-        title = f"KDK (한울방식) 1인 3게임 기준 - {n}명"
+        title = f"📋 KDK (한울방식) 1인 3게임 기준 - {n}명"
     else:
         bracket = KDK_4G.get(n)
-        title = f"KDK (한울방식) 1인 4게임 기준 - {n}명"
+        title = f"📋 KDK (한울방식) 1인 4게임 기준 - {n}명"
     
     if not bracket:
         return
     
-    # 번호 -> 이름 매핑
     number_to_name = {v: k for k, v in player_with_number.items()}
     
-    html = f'<div class="kdk-bracket"><strong>📋 {title}</strong><br><br>'
-    html += '<table style="width:100%; border-collapse:collapse; text-align:center;">'
-    html += '<thead><tr><th>경기 순서</th><th>대진</th><th>참가자</th></tr></thead><tbody>'
+    st.markdown(f'<div class="kdk-bracket"><strong>{title}</strong>', unsafe_allow_html=True)
+    
+    html = '<table>'
+    html += '<thead><tr><th>순서</th><th>대진 번호</th><th>대진 (참가자)</th></tr></thead><tbody>'
     
     for idx, (a, b, c, d) in enumerate(bracket):
-        team1_name = f"{number_to_name.get(a, a)}({a}) & {number_to_name.get(b, b)}({b})"
-        team2_name = f"{number_to_name.get(c, c)}({c}) & {number_to_name.get(d, d)}({d})"
-        html += f'<tr><td>{idx+1}</td><td>{a}{b} : {c}{d}</td><td>{team1_name} vs {team2_name}</td></tr>'
+        team1 = f"{number_to_name.get(a, a)}({a}) & {number_to_name.get(b, b)}({b})"
+        team2 = f"{number_to_name.get(c, c)}({c}) & {number_to_name.get(d, d)}({d})"
+        html += f'<tr><td>{idx+1}</td><td>{a}{b}:{c}{d}</td><td>{team1} vs {team2}</td></tr>'
     
     html += '</tbody></table></div>'
     st.markdown(html, unsafe_allow_html=True)
@@ -577,7 +572,6 @@ if M == "ranking":
         st.download_button(
             "📥 랭킹 엑셀 다운로드", data=to_excel(df),
             file_name=f"두류랭킹_{date.today()}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True)
 
 # ══════════════════════════════════════════════════════════════
@@ -611,28 +605,27 @@ elif M == "schedule":
             is_fixed = (mode == "고정페어")
             is_kdk = (mode == "KDK")
             
-            # 순위 계산 (고정페어는 팀 단위, KDK는 개인 단위)
+            # 순위 계산
             if is_fixed:
                 stats = group_stats_fixed(matches)
-                rank_items = list(stats.keys())  # 팀 tuples
+                rank_items = list(stats.keys())
                 rank_display_name = "팀"
             else:
                 stats = group_stats_kdk(matches)
-                rank_items = list(stats.keys())  # 개인 이름
+                rank_items = list(stats.keys())
                 rank_display_name = "선수"
             
-            # 상대별 전적 매트릭스 표시
+            # 상대별 전적 매트릭스
             st.markdown("**📋 상대별 전적 매트릭스**")
             if matches:
                 if is_fixed:
                     all_teams = list(set([tuple(m["t1"]) for m in matches] + [tuple(m["t2"]) for m in matches]))
                     lab = {t: " & ".join(list(t)) for t in all_teams}
                 else:
-                    # KDK: 개인 vs 개인으로 표시 (이름 옆에 번호 표시)
                     all_players = list(set([p for m in matches for p in m["t1"] + m["t2"]]))
                     lab = {p: f"{p}({player_with_number.get(p, '?')})" for p in all_players}
                 
-                mat = {lab[t]: {lab[o]: ("■" if t==o else "–") for o in lab.keys()} for t in lab.keys()}
+                mat = {lab[t]: {lab[o]: ("■" if t==o else "X") for o in lab.keys()} for t in lab.keys()}
                 for m in matches:
                     if is_fixed:
                         t1 = tuple(m["t1"])
@@ -643,26 +636,30 @@ elif M == "schedule":
                     s1, s2 = int(m["s1"]), int(m["s2"])
                     if s1 > 0 or s2 > 0:
                         if is_fixed:
-                            mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
-                            mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
+                            if s1 > 0 or s2 > 0:
+                                mat[lab[t1]][lab[t2]] = f"{s1}:{s2}"
+                                mat[lab[t2]][lab[t1]] = f"{s2}:{s1}"
                         else:
                             for p1 in players1:
                                 for p2 in players2:
-                                    mat[lab[p1]][lab[p2]] = f"{s1}:{s2}"
-                                    mat[lab[p2]][lab[p1]] = f"{s2}:{s1}"
+                                    if s1 > 0 or s2 > 0:
+                                        mat[lab[p1]][lab[p2]] = f"{s1}:{s2}"
+                                        mat[lab[p2]][lab[p1]] = f"{s2}:{s1}"
                 mdf = pd.DataFrame(mat).T
                 
                 html_table = '<table class="matrix-table">'
                 html_table += '<thead><tr><th></th>'
                 for col in mdf.columns:
                     html_table += f'<th>{col}</th>'
-                html_table += '<tr></thead><tbody>'
+                html_table += '</tr></thead><tbody>'
                 for idx, row in mdf.iterrows():
                     html_table += f'<tr><th><strong>{idx}</strong></th>'
                     for col in mdf.columns:
                         val = row[col]
                         if val == '■':
-                            html_table += f'<td class="matrix-grey">{val}</td>'
+                            html_table += f'<td class="matrix-grey">■</td>'
+                        elif val == 'X':
+                            html_table += f'<td class="matrix-x">X</td>'
                         else:
                             html_table += f'<td>{val}</td>'
                     html_table += '</tr>'
@@ -671,14 +668,14 @@ elif M == "schedule":
             else:
                 st.info("경기 데이터가 없습니다.")
             
-            # KDK 대진표 표시 (사진 형식)
+            # KDK 대진표
             if is_kdk and player_with_number:
                 st.divider()
                 n = len(player_with_number)
                 gc = ginfo.get("games", 3)
                 display_kdk_bracket(n, gc, player_with_number)
             
-            # 현재 순위 표시
+            # 현재 순위
             st.divider()
             st.markdown(f"**🏅 현재 순위 ({rank_display_name} 단위)**")
             if rank_items:
@@ -777,7 +774,6 @@ elif M == "result":
         is_fixed = (mode == "고정페어")
         is_kdk = (mode == "KDK")
         
-        # 순위 계산
         if is_fixed:
             stats = group_stats_fixed(matches)
             items = list(stats.keys())
@@ -791,7 +787,7 @@ elif M == "result":
         
         st.markdown(f'<div class="sec">{g} 그룹 ({mode})</div>', unsafe_allow_html=True)
         
-        # KDK 대진표 표시 (사진 형식)
+        # KDK 대진표
         if is_kdk and player_with_number:
             n = len(player_with_number)
             gc = ginfo.get("games", 3)
@@ -829,7 +825,7 @@ elif M == "result":
                 })
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
         
-        # 전체 경기 결과 (페어 단위)
+        # 전체 경기 결과
         with st.expander(f"📋 {g} 전체 경기 결과 상세보기"):
             mrows = []
             for m in matches:
@@ -887,7 +883,7 @@ elif M == "archive":
         
         st.markdown(f'<div class="sec">{g} 그룹 ({mode})</div>', unsafe_allow_html=True)
         
-        # KDK 대진표 표시
+        # KDK 대진표
         if is_kdk and player_with_number:
             n = len(player_with_number)
             gc = ginfo.get("games", 3)
@@ -939,7 +935,7 @@ elif M == "archive":
             st.dataframe(pd.DataFrame(mrows), use_container_width=True, hide_index=True)
 
 # ══════════════════════════════════════════════════════════════
-# 5. ⚙️ 관리자 (대회 관리, 참가자·대진, 랭킹 관리, 결과 반영)
+# 5. ⚙️ 관리자
 # ══════════════════════════════════════════════════════════════
 elif M == "admin":
     st.markdown("<div class='main-hdr'>⚙️ 관리자 센터</div>", unsafe_allow_html=True)
@@ -1201,7 +1197,6 @@ elif M == "admin":
                     "📥 현재 랭킹 엑셀 다운로드",
                     data=to_excel(df_cur),
                     file_name=f"두류랭킹_{date.today()}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
                     key="btn_rank_dl")
 
@@ -1240,7 +1235,6 @@ elif M == "admin":
                     "📥 수정본 엑셀 다운로드",
                     data=to_excel(edited),
                     file_name=f"두류랭킹_수정_{date.today()}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
                     key="btn_edit_dl")
 
